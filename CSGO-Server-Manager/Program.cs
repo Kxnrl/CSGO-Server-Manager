@@ -24,6 +24,9 @@ using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
+using System.Text.RegularExpressions;
+using System.Linq;
+using System.Net.NetworkInformation;
 
 //https://api.steampowered.com/ISteamApps/UpToDateCheck/v0001/?appid=730&version={version}&format=vdf
 
@@ -44,9 +47,8 @@ namespace CSGO_Server_Manager
     {
         static void Main(string[] args)
         {
-            Console.Title = "CSGO Server Manager v1.0";
+            Console.Title = "CSGO Server Manager v1.0.1";
 
-            Console.WriteLine("");
             Console.WriteLine(@"     )                                        (        *     ");
             Console.WriteLine(@"  ( /(          (                       (     )\ )   (  `    ");
             Console.WriteLine(@"  )\())  (      )\     (                )\   (()/(   )\))(   ");
@@ -59,67 +61,72 @@ namespace CSGO_Server_Manager
             Console.WriteLine(Environment.NewLine);
 
             Global.WalkPath = Environment.CurrentDirectory;
-            if (!Configs.Check())
+            if(!Configs.Check())
             {
                 MessageBox.Show("Please check your game server config\n", "Fatal Error");
                 Environment.Exit(-1);
             }
 
             string srcdspath = Configs.ContentValue("Global", "srcdsPath", Global.WalkPath + "\\srcds.exe");
-            if (!File.Exists(srcdspath))
+            if(!File.Exists(srcdspath))
             {
                 MessageBox.Show("Please check your path of SRCDS\n", "Fatal Error");
                 Environment.Exit(-2);
             }
 
             Process[] process = Process.GetProcessesByName("srcds");
-            foreach (Process exe in process)
+            int srcdsRunning = 0;
+            foreach(Process exe in process)
             {
-                if (exe.MainModule.FileName.Equals(srcdspath))
+                if(exe.MainModule.FileName.Equals(srcdspath))
                 {
-                    Console.WriteLine("{0} >>> Force Srcds Quit! pid[{1}] path[{2}]", DateTime.Now.ToString(), exe.Id, exe.MainModule.FileName);
-                    Helper.ExitSRCDS(exe.MainWindowHandle);
-                    Thread.Sleep(5000);
-                    if(!exe.HasExited)
-                    {
-                        Console.WriteLine("{0} >>> Force Srcds Kill! pid[{1}]", DateTime.Now.ToString(), exe.Id);
-                        exe.Kill();
-                    }
-                    break;
+                    srcdsRunning++;
                 }
             }
+            if(srcdsRunning > 0)
+                Console.WriteLine("{0} >>> {1} SRCDS are running [{2}]", DateTime.Now.ToString(), srcdsRunning, process[0].MainModule.FileName);
 
             string accounts = Configs.ContentValue("SteamWorks", "Token", null);
             string groupids = Configs.ContentValue("SteamWorks", "Group", null);
 
             string ip = Configs.ContentValue("Server", "IP", null);
-            if (string.IsNullOrEmpty(ip))
+            if(string.IsNullOrEmpty(ip))
             {
                 do
                 {
-                    MessageBox.Show("Please input your Game Server IP\n", "Fatal Error");
+                    Console.WriteLine("Please input your Game Server IP ...");
                     ip = Console.ReadLine();
                     Configs.Write("Server", "IP", ip);
                 }
-                while (!IPAddress.TryParse(ip, out IPAddress ipadr));
+                while(!IPAddress.TryParse(ip, out IPAddress ipadr));
             }
 
             string Port = Configs.ContentValue("Server", "Port", null);
-            if (string.IsNullOrEmpty(Port) || !int.TryParse(Port, out int port))
+            if(string.IsNullOrEmpty(Port) || !int.TryParse(Port, out int port))
             {
                 do
                 {
-                    MessageBox.Show("Please input your Game Server Port (27000 - 27099) \n", "Fatal Error");
+                    Console.WriteLine("Please input your Game Server Port (27000 - 27099) ...");
                     Port = Console.ReadLine();
                     Configs.Write("Server", "IP", Port);
                 }
-                while (!int.TryParse(Port, out port));
+                while(!int.TryParse(Port, out port));
             }
 
-            if (A2S.Query(true))
+            if(!Helper.PortAvailable(port))
             {
-                Console.WriteLine("{0} >>> Port[{1}] has been used...", DateTime.Now.ToString(), port);
-                Console.ReadKey(false);
+                Console.WriteLine("{0} >>> Port[{1}] is unavailable! Finding Application...", DateTime.Now.ToString(), port);
+
+                try
+                {
+                    Process exe = Helper.GetAppByPort(port);
+                    Console.WriteLine("{0} >>> Trigger SRCDS Quit -> App[{1}] PID[{2}]", DateTime.Now.ToString(), exe.MainWindowTitle, exe.Id);
+                    Helper.KillSRCDS(exe);
+                }
+                catch(Exception e)
+                {
+                    Console.WriteLine("{0} >>> Not found Application: {1}", DateTime.Now.ToString(), e.Message);
+                }
             }
 
             string insecure = Configs.ContentValue("Server", "Insecure", null);
@@ -151,7 +158,7 @@ namespace CSGO_Server_Manager
 
             Thread.Sleep(3000);
 
-            while (true)
+            while(true)
             {
                 string input = Console.ReadLine();
                 if(Global.update)
@@ -166,7 +173,7 @@ namespace CSGO_Server_Manager
                     Thread.Sleep(3000);
                     continue;
                 }
-                switch (input.ToLower())
+                switch(input.ToLower())
                 {
                     case "show":
                         Window.Show(Global.srcds.MainWindowHandle.ToInt32());
@@ -178,7 +185,7 @@ namespace CSGO_Server_Manager
                         break;
                     case "exec":
                         string cmds = Console.ReadLine();
-                        if (cmds.Length > 1)
+                        if(cmds.Length > 1)
                         {
                             Message.Write(Global.srcds.MainWindowHandle, cmds);
                             Message.Send(Global.srcds.MainWindowHandle);
@@ -194,7 +201,7 @@ namespace CSGO_Server_Manager
                         Global.tupdate = null;
                         Global.tcrash.Abort();
                         Global.tcrash = null;
-                        Helper.ExitSRCDS();
+                        Helper.KillSRCDS();
                         MessageBox.Show("SRCDS exit!", "Message");
                         Environment.Exit(0);
                         break;
@@ -208,10 +215,10 @@ namespace CSGO_Server_Manager
                         new Thread(Thread_UpdateCSGO).Start();
                         break;
                     default:
-                        if (input.StartsWith("exec "))
+                        if(input.StartsWith("exec "))
                         {
                             string cmd = input.Replace("exec ", "");
-                            if (cmd.Length > 1)
+                            if(cmd.Length > 1)
                             {
                                 Message.Write(Global.srcds.MainWindowHandle, cmd);
                                 Message.Send(Global.srcds.MainWindowHandle);
@@ -258,7 +265,7 @@ namespace CSGO_Server_Manager
             }
 
             //IntPtr hwnd = Window.FindWindow("ConsoleWindowClass", Global.srcds.MainWindowTitle);
-            //if (hwnd != IntPtr.Zero)
+            //if(hwnd != IntPtr.Zero)
             //{
             //    Console.WriteLine("FindWindow -> " + hwnd);
             //    Console.WriteLine("MainWindow -> " + Global.srcds.MainWindowHandle);
@@ -267,6 +274,7 @@ namespace CSGO_Server_Manager
             Console.WriteLine("{0} >>> Srcds Started!", DateTime.Now.ToString());
             Console.WriteLine("Start  Info: pid[{0}] path[{1}]", Global.srcds.Id, Global.srcds.MainModule.FileName);
             Console.WriteLine("CommandLine: {0}", Global.args);
+            Console.WriteLine("");
             Console.WriteLine("Commands: ");
             Console.WriteLine("show   - show srcds console window.");
             Console.WriteLine("hide   - hide srcds console window.");
@@ -284,14 +292,18 @@ namespace CSGO_Server_Manager
             Global.crash = false;
             int a2stimeout = 0;
 
-            while (true)
+            while(true)
             {
                 Thread.Sleep(1234);
 
-                if (Global.update)
-                    break;
+                if(Global.update)
+                {
+                    Global.tcrash = null;
+                    Global.tcrash.Abort();
+                    return;
+                }
 
-                if (!A2S.Query(false))
+                if(!A2S.Query(false))
                 {
                     a2stimeout++;
                     Console.Title = "CSGO Server Manager - [TimeOut] " + Global.srcds.MainWindowTitle;
@@ -302,7 +314,7 @@ namespace CSGO_Server_Manager
                     Console.Title = "CSGO Server Manager - " + Global.srcds.MainWindowTitle;
                 }
 
-                if (a2stimeout < 10)
+                if(a2stimeout < 10)
                     continue;
 
                 Console.WriteLine("{0} >>> SRCDS crashed!", DateTime.Now.ToString());
@@ -312,11 +324,8 @@ namespace CSGO_Server_Manager
                 break;
             }
 
-            if (!Global.crash)
-                return;
-
-            if (!Global.srcds.HasExited)
-                Helper.ExitSRCDS();
+            if(!Global.srcds.HasExited)
+                Helper.KillSRCDS();
 
             Thread.Sleep(1000);
             Global.tcrash = new Thread(Thread_CheckCrashs);
@@ -328,7 +337,7 @@ namespace CSGO_Server_Manager
         {
             do
             {
-                if (!SteamApi.latestVersion())
+                if(!SteamApi.latestVersion())
                 {
                     Global.update = true;
                     Global.tupdate = null;
@@ -340,12 +349,12 @@ namespace CSGO_Server_Manager
 
                 Thread.Sleep(120000);
             }
-            while (true);
+            while(true);
         }
 
         static void Thread_UpdateCSGO()
         {
-            Helper.ExitSRCDS();
+            Helper.KillSRCDS();
             Console.WriteLine("{0} >>> Starting Update!", DateTime.Now.ToString());
 
             Thread.Sleep(4000);
@@ -413,7 +422,7 @@ namespace CSGO_Server_Manager
 
         public static bool Check()
         {
-            if (!File.Exists(Global.WalkPath + "\\server_config.ini"))
+            if(!File.Exists(Global.WalkPath + "\\server_config.ini"))
             {
                 Write("Global", "srcdsPath", Global.WalkPath + "\\srcds.exe");
                 Write("Global", "steamCmds", Global.WalkPath + "\\steamcmd.exe");
@@ -514,22 +523,93 @@ namespace CSGO_Server_Manager
             return "Invalid Local Ip Adress (伺服器沒有公網IP)";
         }
 
-        public static void ExitSRCDS()
+        public static bool PortAvailable(int port)
+        {
+            return !((from p in IPGlobalProperties.GetIPGlobalProperties().GetActiveUdpListeners() where p.Port == port select p).Count() == 1);
+        }
+
+        public static Process GetAppByPort(int checkPort)
+        {
+            ProcessStartInfo startInfo = new ProcessStartInfo();
+            startInfo.FileName = "netstat.exe";
+            startInfo.Arguments = "-a -n -o";
+            startInfo.WindowStyle = ProcessWindowStyle.Hidden;
+            startInfo.UseShellExecute = false;
+            startInfo.RedirectStandardInput = true;
+            startInfo.RedirectStandardOutput = true;
+            startInfo.RedirectStandardError = true;
+
+            Process netstats = new Process();
+            netstats.StartInfo = startInfo;
+            netstats.Start();
+            netstats.WaitForExit();
+
+            StreamReader sr = netstats.StandardOutput;
+            string output = sr.ReadToEnd();
+            if(netstats.ExitCode != 0)
+                throw new Exception("netstats ExitCode = " + netstats.ExitCode);
+
+            string[] lines = Regex.Split(output, "\r\n");
+            foreach(var line in lines)
+            {
+                // first line 嘻嘻
+                if(line.Trim().StartsWith("Proto"))
+                    continue;
+
+                string[] parts = line.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+
+                if(parts.Length < 2)
+                    continue;
+
+                if(!int.TryParse(parts[parts.Length - 1], out int pid))
+                    continue;
+
+                if(!int.TryParse(parts[1].Split(':').Last(), out int port))
+                    continue;
+
+                if(port != checkPort)
+                    continue;
+
+                //Console.WriteLine("Find Result: Protocol[{0}]  Port[{1}]  PID[{2}]", parts[0], port, pid);
+
+                return Process.GetProcessById(pid);
+            }
+
+            throw new Exception("Not Found in list[" + (lines.Length-1) + "]");
+        }
+
+        public static void KillSRCDS()
         {
             if(Global.srcds.HasExited)
                 return;
 
             Message.Write(Global.srcds.MainWindowHandle, "quit");
             Message.Send(Global.srcds.MainWindowHandle);
-            Thread.Sleep(2000);
+            Thread.Sleep(6666);
+
+            if(!Global.srcds.HasExited)
+            {
+                Console.WriteLine("{0} >>> Timeout -> Force Kill SRCDS! pid[{1}]", DateTime.Now.ToString(), Global.srcds.Id);
+                Global.srcds.Kill();
+            }
+
             Global.srcds = null;
+            Thread.Sleep(666);
         }
 
-        public static void ExitSRCDS(IntPtr srcds)
+        public static void KillSRCDS(Process srcds)
         {
-            Message.Write(srcds, "quit");
-            Message.Send(srcds);
-            Thread.Sleep(2333);
+            Message.Write(srcds.MainWindowHandle, "quit");
+            Message.Send(srcds.MainWindowHandle);
+            Thread.Sleep(6666);
+
+            if(!srcds.HasExited)
+            {
+                Console.WriteLine("{0} >>> Timeout -> Force Kill SRCDS! pid[{1}]", DateTime.Now.ToString(), srcds.Id);
+                srcds.Kill();
+            }
+
+            Thread.Sleep(666);
         }
     }
 
@@ -556,7 +636,7 @@ namespace CSGO_Server_Manager
             {
                 serverSock.Receive(serverResponse);
             }
-            catch (Exception e)
+            catch(Exception e)
             {
                 if(!start)
                 {
@@ -577,9 +657,9 @@ namespace CSGO_Server_Manager
         {
             StreamReader sr = new StreamReader(Global.WalkPath + "\\csgo\\steam.inf");
             string line = string.Empty;
-            while ((line = sr.ReadLine()) != null)
+            while((line = sr.ReadLine()) != null)
             {
-                if (!line.StartsWith("PatchVersion"))
+                if(!line.StartsWith("PatchVersion"))
                     continue;
 
                 return line.Replace("PatchVersion=", "");
@@ -593,7 +673,7 @@ namespace CSGO_Server_Manager
             try
             {
                 string result = http.DownloadString(new Uri(uri));
-                if (!result.Contains("\"success\":true"))
+                if(!result.Contains("\"success\":true"))
                 {
                     Console.WriteLine("{0} >>> SteamApi Failed: {1}", DateTime.Now.ToShortTimeString(), result);
                     return true;
