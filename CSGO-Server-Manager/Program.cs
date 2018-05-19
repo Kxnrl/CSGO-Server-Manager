@@ -48,7 +48,7 @@ namespace CSGO_Server_Manager
         [STAThread]
         static void Main(string[] args)
         {
-            Console.Title = "CSGO Server Manager v1.0.5.Fix";
+            Console.Title = "CSGO Server Manager v1.0.6";
 
             Console.WriteLine(@"     )                                        (        *     ");
             Console.WriteLine(@"  ( /(          (                       (     )\ )   (  `    ");
@@ -110,16 +110,14 @@ namespace CSGO_Server_Manager
             }
 
             Process[] process = Process.GetProcessesByName("srcds");
-            int srcdsRunning = 0;
             foreach(Process exe in process)
             {
                 if(exe.MainModule.FileName.Equals(Configs.srcdsPath))
                 {
-                    srcdsRunning++;
+                    // what the fuck?
                 }
             }
-            if(srcdsRunning > 0)
-                Console.WriteLine("{0} >>> {1} SRCDS are running [{2}]", DateTime.Now.ToString(), srcdsRunning, process[0].MainModule.FileName);
+            Console.WriteLine("{0} >>> {1} SRCDS are running on current host.", DateTime.Now.ToString(), process.Length);
 
             if(string.IsNullOrEmpty(Configs.wwip) || !IPAddress.TryParse(Configs.wwip, out IPAddress ipadr))
             {
@@ -225,13 +223,32 @@ namespace CSGO_Server_Manager
                         Global.tupdate = null;
                         Global.tcrash.Abort();
                         Global.tcrash = null;
-                        Helper.KillSRCDS();
+                        Helper.KillSRCDS(true);
+                        MessageBox.Show("SRCDS exit!", "Message");
+                        Environment.Exit(0);
+                        break;
+                    case "exit":
+                        Global.tupdate.Abort();
+                        Global.tupdate = null;
+                        Global.tcrash.Abort();
+                        Global.tcrash = null;
+                        Helper.KillSRCDS(true);
                         MessageBox.Show("SRCDS exit!", "Message");
                         Environment.Exit(0);
                         break;
                     case "update":
-                        Global.update = true;
+                        for(int cd = 60; cd > 0; cd--)
+                        {
+                            Console.WriteLine("Server restart in " + cd + " seconds");
+                            Message.Write(Global.srcds.MainWindowHandle, "say Server restart in " + cd + " seconds");
+                            Message.Send(Global.srcds.MainWindowHandle);
+                            Thread.Sleep(1000);
+
+                            if(Global.crash)
+                                break;
+                        }
                         Console.WriteLine("Begin update.");
+                        Global.update = true;
                         Global.tupdate.Abort();
                         Global.tupdate = null;
                         Global.tcrash.Abort();
@@ -365,7 +382,7 @@ namespace CSGO_Server_Manager
             }
 
             if(!Global.srcds.HasExited)
-                Helper.KillSRCDS();
+                Helper.KillSRCDS(false);
 
             Thread.Sleep(1000);
             Global.tcrash = new Thread(Thread_CheckCrashs);
@@ -379,11 +396,22 @@ namespace CSGO_Server_Manager
             {
                 if(!SteamApi.latestVersion())
                 {
+                    for(int cd = 60; cd > 0; cd--)
+                    {
+                        Console.WriteLine("Server restart in " + cd + " seconds");
+                        Message.Write(Global.srcds.MainWindowHandle, "say Server restart in " + cd + " seconds");
+                        Message.Send(Global.srcds.MainWindowHandle);
+                        Thread.Sleep(1000);
+
+                        if(Global.crash)
+                            break;
+                    }
                     Global.update = true;
                     Global.tupdate = null;
                     Global.tcrash.Abort();
                     Global.tcrash = null;
                     new Thread(Thread_UpdateCSGO).Start();
+                    Thread.CurrentThread.Abort();
                     break;
                 }
 
@@ -394,7 +422,7 @@ namespace CSGO_Server_Manager
 
         static void Thread_UpdateCSGO()
         {
-            Helper.KillSRCDS();
+            Helper.KillSRCDS(true);
             Console.WriteLine("{0} >>> Starting Update!", DateTime.Now.ToString());
 
             Thread.Sleep(4000);
@@ -441,7 +469,8 @@ namespace CSGO_Server_Manager
 
                     for(int cd = 60; cd > 0; cd--)
                     {
-                        Message.Write(Global.srcds.MainWindowHandle, "Server restart in " + cd + " seconds");
+                        Console.WriteLine("Server restart in " + cd + " seconds");
+                        Message.Write(Global.srcds.MainWindowHandle, "say Server restart in " + cd + " seconds");
                         Message.Send(Global.srcds.MainWindowHandle);
                         Thread.Sleep(1000);
 
@@ -454,8 +483,9 @@ namespace CSGO_Server_Manager
 
                     Message.Write(Global.srcds.MainWindowHandle, "sm_kick @all \"Server Restart\"");
                     Message.Send(Global.srcds.MainWindowHandle);
+                    Thread.Sleep(1234);
 
-                    Helper.KillSRCDS();
+                    Helper.KillSRCDS(false);
                 }
             }
         }
@@ -668,16 +698,24 @@ namespace CSGO_Server_Manager
     class Message
     {
         [DllImport("User32.dll")]
-        public static extern Int32 SendMessage(IntPtr hWnd, int Msg, int wParam, [MarshalAs(UnmanagedType.LPStr)] string lParam);
+        public static extern IntPtr SendMessage(IntPtr hWnd, int wMsg, int wParam, int lParam);
         [DllImport("User32.dll", EntryPoint = "PostMessage")]
         private static extern bool PostMessage(IntPtr hWnd, int Msg, int wParam, int lParam);
 
         public static void Write(IntPtr hWnd, string message)
         {
+            /*
             char[] cs = message.ToCharArray();
             foreach(char c in cs)
             {
-                PostMessage(hWnd, 0x0102, c, 0);
+                SendMessage(hWnd, 0x0102, c, 0);
+            }
+            */
+
+            byte[] bytes = Encoding.Unicode.GetBytes(message);
+            foreach(byte b in bytes)
+            {
+                SendMessage(hWnd, 0x0102, b, 0);
             }
         }
 
@@ -764,10 +802,17 @@ namespace CSGO_Server_Manager
             throw new Exception("Not Found in list[" + (lines.Length-1) + "]");
         }
 
-        public static void KillSRCDS()
+        public static void KillSRCDS(bool kickPlayer)
         {
             if(Global.srcds.HasExited)
                 return;
+
+            if(kickPlayer)
+            {
+                Message.Write(Global.srcds.MainWindowHandle, "sm_kick @all \"Server Restart\"");
+                Message.Send(Global.srcds.MainWindowHandle);
+                Thread.Sleep(1234);
+            }
 
             Message.Write(Global.srcds.MainWindowHandle, "quit");
             Message.Send(Global.srcds.MainWindowHandle);
@@ -838,7 +883,7 @@ namespace CSGO_Server_Manager
             }
             catch(Exception e)
             {
-                Console.WriteLine("{0} >>> A2S Send Failed: {1}", DateTime.Now.ToShortTimeString(), e.Message);
+                Console.WriteLine("{0} >>> A2S Send Failed: {1}", DateTime.Now.ToString(), e.Message);
                 return false;
             }
 
@@ -851,7 +896,7 @@ namespace CSGO_Server_Manager
             {
                 if(!start)
                 {
-                    Console.WriteLine("{0} >>> A2S Recv Failed: {1}", DateTime.Now.ToShortTimeString(), e.Message);
+                    Console.WriteLine("{0} >>> A2S Recv Failed: {1}", DateTime.Now.ToString(), e.Message);
                 }
                 return false;
             }
@@ -908,7 +953,7 @@ namespace CSGO_Server_Manager
 
                 if(consoleLog)
                 {
-                    Console.WriteLine("{0} >>> TokenApi result -> {1}", DateTime.Now.ToString(), result);
+                    Console.WriteLine("{0} >>> TokenApi -> Init {1}", DateTime.Now.ToString(), result);
                 }
 
                 if(result.Equals(Configs.accounts))
