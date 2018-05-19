@@ -34,11 +34,11 @@ namespace CSGO_Server_Manager
 {
     class Global
     {
-        public static string WalkPath = null;
-        public static Process srcds = null;
+        public static string ip = null;
+        public static string pt = null;
         public static bool update = false;
         public static bool crash = false;
-        public static string args = null;
+        public static Process srcds = null;
         public static Thread tcrash = null;
         public static Thread tupdate = null;
     }
@@ -47,7 +47,7 @@ namespace CSGO_Server_Manager
     {
         static void Main(string[] args)
         {
-            Console.Title = "CSGO Server Manager v1.0.1";
+            Console.Title = "CSGO Server Manager v1.0.2";
 
             Console.WriteLine(@"     )                                        (        *     ");
             Console.WriteLine(@"  ( /(          (                       (     )\ )   (  `    ");
@@ -60,14 +60,13 @@ namespace CSGO_Server_Manager
             Console.WriteLine(@"         |__/                                                ");
             Console.WriteLine(Environment.NewLine);
 
-            Global.WalkPath = Environment.CurrentDirectory;
             if(!Configs.Check())
             {
                 MessageBox.Show("Please check your game server config\n", "Fatal Error");
                 Environment.Exit(-1);
             }
 
-            string srcdspath = Configs.ContentValue("Global", "srcdsPath", Global.WalkPath + "\\srcds.exe");
+            string srcdspath = Configs.ContentValue("Global", "srcdsPath", Environment.CurrentDirectory + "\\srcds.exe");
             if(!File.Exists(srcdspath))
             {
                 MessageBox.Show("Please check your path of SRCDS\n", "Fatal Error");
@@ -86,31 +85,28 @@ namespace CSGO_Server_Manager
             if(srcdsRunning > 0)
                 Console.WriteLine("{0} >>> {1} SRCDS are running [{2}]", DateTime.Now.ToString(), srcdsRunning, process[0].MainModule.FileName);
 
-            string accounts = Configs.ContentValue("SteamWorks", "Token", null);
-            string groupids = Configs.ContentValue("SteamWorks", "Group", null);
-
-            string ip = Configs.ContentValue("Server", "IP", null);
-            if(string.IsNullOrEmpty(ip))
+            Global.ip = Configs.ContentValue("Server", "IP", null);
+            if(string.IsNullOrEmpty(Global.ip))
             {
                 do
                 {
                     Console.WriteLine("Please input your Game Server IP ...");
-                    ip = Console.ReadLine();
-                    Configs.Write("Server", "IP", ip);
+                    Global.ip = Console.ReadLine();
+                    Configs.Write("Server", "IP", Global.ip);
                 }
-                while(!IPAddress.TryParse(ip, out IPAddress ipadr));
+                while(!IPAddress.TryParse(Global.ip, out IPAddress ipadr));
             }
 
-            string Port = Configs.ContentValue("Server", "Port", null);
-            if(string.IsNullOrEmpty(Port) || !int.TryParse(Port, out int port))
+            Global.pt = Configs.ContentValue("Server", "Port", null);
+            if(string.IsNullOrEmpty(Global.pt) || !int.TryParse(Global.pt, out int port))
             {
                 do
                 {
                     Console.WriteLine("Please input your Game Server Port (27000 - 27099) ...");
-                    Port = Console.ReadLine();
-                    Configs.Write("Server", "IP", Port);
+                    Global.pt = Console.ReadLine();
+                    Configs.Write("Server", "IP", Global.pt);
                 }
-                while(!int.TryParse(Port, out port));
+                while(!int.TryParse(Global.pt, out port));
             }
 
             if(!Helper.PortAvailable(port))
@@ -129,29 +125,17 @@ namespace CSGO_Server_Manager
                 }
             }
 
-            string insecure = Configs.ContentValue("Server", "Insecure", null);
-            string tickrate = Configs.ContentValue("Server", "TickRate", null);
-            string maxplays = Configs.ContentValue("Server", "MaxPlays", null);
-            string nobotsex = Configs.ContentValue("Server", "NoBotsEx", null);
-            string gametype = Configs.ContentValue("Server", "GameType", null);
-            string gamemode = Configs.ContentValue("Server", "GameMode", null);
-            string mapgroup = Configs.ContentValue("Server", "MapGroup", null);
-            string startmap = Configs.ContentValue("Server", "StartMap", null);
-
-            Global.args = "-console -game csgo" + " "
-                        + "-ip " + ip + " "
-                        + "-port " + port + " "
-                        + ((!string.IsNullOrEmpty(insecure) && int.TryParse(insecure, out int novalveac) && novalveac == 1) ? "-insecure " : " ")
-                        + ((!string.IsNullOrEmpty(tickrate) && int.TryParse(tickrate, out int TickRate)) ? string.Format("-tickrate {0} ", TickRate) : " ")
-                        + ((!string.IsNullOrEmpty(maxplays) && int.TryParse(maxplays, out int maxPlays)) ? string.Format("-maxplayers_override {0} ", maxPlays) : " ")
-                        + ((!string.IsNullOrEmpty(nobotsex) && int.TryParse(nobotsex, out int nobots) && nobots == 1) ? "-nobots " : " ")
-                        + ((!string.IsNullOrEmpty(gametype) && int.TryParse(gametype, out int gameType)) ? string.Format("+gametype {0} ", gameType) : " ")
-                        + ((!string.IsNullOrEmpty(gamemode) && int.TryParse(gamemode, out int gameMode)) ? string.Format("+gamemode {0} ", gameMode) : " ")
-                        + ((!string.IsNullOrEmpty(mapgroup)) ? string.Format("+mapgroup {0} ", mapgroup) : " ")
-                        + ((!string.IsNullOrEmpty(startmap)) ? string.Format("+map {0} ", startmap) : " ")
-                        + ((!string.IsNullOrEmpty(accounts)) ? string.Format("+sv_setsteamaccount {0} ", accounts) : " ")
-                        + ((!string.IsNullOrEmpty(groupids)) ? string.Format("+sv_steamgroup {0} ", groupids) : " ");
-
+            string ApiKey = Configs.ContentValue("CSGOtokens.com", "ApiKey", null);
+            if(!string.IsNullOrEmpty(ApiKey))
+            {
+                uint times = 0;
+                while(SteamApi.checkTokens(true) <= 0)
+                {
+                    Console.WriteLine("{0} >>> TokenApi -> Checking ... {1}", DateTime.Now.ToString(), times++);
+                }
+                Console.WriteLine("{0} >>> TokenApi -> feature is available.", DateTime.Now.ToString());
+                new Thread(Thread_CheckToken).Start();
+            }
 
             Global.tcrash = new Thread(Thread_CheckCrashs);
             Global.tcrash.Start();
@@ -245,11 +229,36 @@ namespace CSGO_Server_Manager
 
         static void Thread_CheckCrashs()
         {
+            string accounts = Configs.ContentValue("SteamWorks", "Token", null);
+            string groupids = Configs.ContentValue("SteamWorks", "Group", null);
+            string insecure = Configs.ContentValue("Server", "Insecure", null);
+            string tickrate = Configs.ContentValue("Server", "TickRate", null);
+            string maxplays = Configs.ContentValue("Server", "MaxPlays", null);
+            string nobotsex = Configs.ContentValue("Server", "NoBotsEx", null);
+            string gametype = Configs.ContentValue("Server", "GameType", null);
+            string gamemode = Configs.ContentValue("Server", "GameMode", null);
+            string mapgroup = Configs.ContentValue("Server", "MapGroup", null);
+            string startmap = Configs.ContentValue("Server", "StartMap", null);
+
+            string args = "-console -game csgo" + " "
+                        + "-ip " + Global.ip + " "
+                        + "-port " + Global.pt + " "
+                        + ((!string.IsNullOrEmpty(insecure) && int.TryParse(insecure, out int novalveac) && novalveac == 1) ? "-insecure " : " ")
+                        + ((!string.IsNullOrEmpty(tickrate) && int.TryParse(tickrate, out int TickRate)) ? string.Format("-tickrate {0} ", TickRate) : " ")
+                        + ((!string.IsNullOrEmpty(maxplays) && int.TryParse(maxplays, out int maxPlays)) ? string.Format("-maxplayers_override {0} ", maxPlays) : " ")
+                        + ((!string.IsNullOrEmpty(nobotsex) && int.TryParse(nobotsex, out int nobots) && nobots == 1) ? "-nobots " : " ")
+                        + ((!string.IsNullOrEmpty(gametype) && int.TryParse(gametype, out int gameType)) ? string.Format("+gametype {0} ", gameType) : " ")
+                        + ((!string.IsNullOrEmpty(gamemode) && int.TryParse(gamemode, out int gameMode)) ? string.Format("+gamemode {0} ", gameMode) : " ")
+                        + ((!string.IsNullOrEmpty(mapgroup)) ? string.Format("+mapgroup {0} ", mapgroup) : " ")
+                        + ((!string.IsNullOrEmpty(startmap)) ? string.Format("+map {0} ", startmap) : " ")
+                        + ((!string.IsNullOrEmpty(accounts)) ? string.Format("+sv_setsteamaccount {0} ", accounts) : " ")
+                        + ((!string.IsNullOrEmpty(groupids)) ? string.Format("+sv_steamgroup {0} ", groupids) : " ");
+
             try
             {
                 ProcessStartInfo startInfo = new ProcessStartInfo();
-                startInfo.FileName = Configs.ContentValue("Global", "srcdsPath", Global.WalkPath + "\\srcds.exe");
-                startInfo.Arguments = Global.args;
+                startInfo.FileName = Configs.ContentValue("Global", "srcdsPath", Environment.CurrentDirectory + "\\srcds.exe");
+                startInfo.Arguments = args;
                 startInfo.UseShellExecute = false;
 
                 Global.srcds = Process.Start(startInfo);
@@ -273,7 +282,7 @@ namespace CSGO_Server_Manager
 
             Console.WriteLine("{0} >>> Srcds Started!", DateTime.Now.ToString());
             Console.WriteLine("Start  Info: pid[{0}] path[{1}]", Global.srcds.Id, Global.srcds.MainModule.FileName);
-            Console.WriteLine("CommandLine: {0}", Global.args);
+            Console.WriteLine("CommandLine: {0}", args);
             Console.WriteLine("");
             Console.WriteLine("Commands: ");
             Console.WriteLine("show   - show srcds console window.");
@@ -374,7 +383,7 @@ namespace CSGO_Server_Manager
                 startInfo.FileName = steamcmd;
                 startInfo.UseShellExecute = false;
                 startInfo.RedirectStandardOutput = true;
-                startInfo.Arguments = "+login anonymous +force_install_dir \"" + Global.WalkPath + "\" " + "+app_update 740 +quit";
+                startInfo.Arguments = "+login anonymous +force_install_dir \"" + Environment.CurrentDirectory + "\" " + "+app_update 740 +quit";
 
                 Process process = Process.Start(startInfo);
                 StreamReader outputStreamReader = process.StandardOutput;
@@ -396,6 +405,38 @@ namespace CSGO_Server_Manager
             Global.update = false;
             new Thread(Thread_CheckCrashs).Start();
         }
+
+        static void Thread_CheckToken()
+        {
+            while(true)
+            {
+                Thread.Sleep(600000);
+
+                if(SteamApi.checkTokens() == 1)
+                {
+                    Global.tupdate.Abort();
+                    Global.tupdate = null;
+
+                    for(int cd = 60; cd > 0; cd--)
+                    {
+                        Message.Write(Global.srcds.MainWindowHandle, "Server restart in " + cd + " seconds");
+                        Message.Send(Global.srcds.MainWindowHandle);
+                        Thread.Sleep(1000);
+
+                        if(Global.crash)
+                            break;
+                    }
+
+                    if(Global.crash)
+                        continue;
+
+                    Message.Write(Global.srcds.MainWindowHandle, "sm_kick @all \"Server Restart\"");
+                    Message.Send(Global.srcds.MainWindowHandle);
+
+                    Helper.KillSRCDS();
+                }
+            }
+        }
     }
 
     class Configs
@@ -409,7 +450,7 @@ namespace CSGO_Server_Manager
         public static string ContentValue(string section, string key, string defaultValue)
         {
             StringBuilder temp = new StringBuilder(1024);
-            GetPrivateProfileString(section, key, defaultValue, temp, 1024, Global.WalkPath + "\\server_config.ini");
+            GetPrivateProfileString(section, key, defaultValue, temp, 1024, Environment.CurrentDirectory + "\\server_config.ini");
             if(temp.ToString().Equals("null"))
                 return null;
             return temp.ToString();
@@ -417,15 +458,15 @@ namespace CSGO_Server_Manager
 
         public static void Write(string section, string key, string val)
         {
-            WritePrivateProfileString(section, key, val, Global.WalkPath + "\\server_config.ini");
+            WritePrivateProfileString(section, key, val, Environment.CurrentDirectory + "\\server_config.ini");
         }
 
         public static bool Check()
         {
-            if(!File.Exists(Global.WalkPath + "\\server_config.ini"))
+            if(!File.Exists(Environment.CurrentDirectory + "\\server_config.ini"))
             {
-                Write("Global", "srcdsPath", Global.WalkPath + "\\srcds.exe");
-                Write("Global", "steamCmds", Global.WalkPath + "\\steamcmd.exe");
+                Write("Global", "srcdsPath", Environment.CurrentDirectory + "\\srcds.exe");
+                Write("Global", "steamCmds", Environment.CurrentDirectory + "\\steamcmd.exe");
 
                 Write("SteamWorks", "Token", "null");
                 Write("SteamWorks", "Group", "null");
@@ -440,6 +481,8 @@ namespace CSGO_Server_Manager
                 Write("Server", "GameMode", "0");
                 Write("Server", "MapGroup", "custom_maps");
                 Write("Server", "StartMap", "de_dust2");
+
+                Write("CSGOtokens.com", "ApiKey", "null");
 
                 return false;
             }
@@ -655,7 +698,7 @@ namespace CSGO_Server_Manager
 
         private static string getVersion()
         {
-            StreamReader sr = new StreamReader(Global.WalkPath + "\\csgo\\steam.inf");
+            StreamReader sr = new StreamReader(Environment.CurrentDirectory + "\\csgo\\steam.inf");
             string line = string.Empty;
             while((line = sr.ReadLine()) != null)
             {
@@ -686,6 +729,49 @@ namespace CSGO_Server_Manager
             }
 
             return true;
+        }
+
+        public static int checkTokens(bool consoleLog = false)
+        {
+            string result = null;
+            string tokens = Configs.ContentValue("SteamWorks", "Token", null);
+            try
+            {
+                result = http.DownloadString(new Uri("https://csgotokens.com/token-api.php?ip=" + Global.ip + ":" + Global.pt + "&key=" + Configs.ContentValue("CSGOtokens.com", "ApiKey", null)));
+
+                if(consoleLog)
+                {
+                    Console.WriteLine("{0} >>> TokenApi result -> {1}", DateTime.Now.ToString(), result);
+                }
+
+                if(result.Equals(tokens))
+                {
+                    if(consoleLog)
+                    {
+                        Console.WriteLine("{0} >>> TokenApi -> Token status is OK.", DateTime.Now.ToString());
+                    }
+                    return 2;
+                }
+                else
+                {
+                    if(result.Length == 32)
+                    {
+                        Configs.Write("SteamWorks", "Token", result);
+                        Console.WriteLine("{0} >>> Token was banned -> old token [{1}] -> new token [{2}]", DateTime.Now.ToString(), tokens, result);
+                        return 1;
+                    }
+                    else
+                    {
+                        Console.WriteLine("{0} >>> TokenApi Response: {1}", DateTime.Now.ToString(), result);
+                        return 0;
+                    }
+                }
+            }
+            catch(Exception e)
+            {
+                Console.WriteLine("{0} >>> TokenApi Exception: {0}", DateTime.Now.ToString(), e.Message);
+                return -2;
+            }
         }
     }
 }
