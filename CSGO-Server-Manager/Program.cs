@@ -45,9 +45,10 @@ namespace CSGO_Server_Manager
 
     class Program
     {
+        [STAThread]
         static void Main(string[] args)
         {
-            Console.Title = "CSGO Server Manager v1.0.2";
+            Console.Title = "CSGO Server Manager v1.0.3";
 
             Console.WriteLine(@"     )                                        (        *     ");
             Console.WriteLine(@"  ( /(          (                       (     )\ )   (  `    ");
@@ -60,17 +61,56 @@ namespace CSGO_Server_Manager
             Console.WriteLine(@"         |__/                                                ");
             Console.WriteLine(Environment.NewLine);
 
-            if(!Configs.Check())
+            bool configs = Configs.Check();
+            if(!configs)
             {
-                MessageBox.Show("Please check your game server config\n", "Fatal Error");
-                Environment.Exit(-1);
+                Console.WriteLine("{0} >>> Configs was not found -> Auto Generated in work path of application.", DateTime.Now.ToString());
             }
 
-            string srcdspath = Configs.ContentValue("Global", "srcdsPath", Environment.CurrentDirectory + "\\srcds.exe");
-            if(!File.Exists(srcdspath))
+            string srcdspath = Configs.ContentValue("Global", "srcdsPath", Environment.CurrentDirectory + "\\srcds1.exe");
+            Console.WriteLine("{0} >>> Check srcds path -> {1}", DateTime.Now.ToString(), srcdspath);
+            while(!File.Exists(srcdspath))
             {
-                MessageBox.Show("Please check your path of SRCDS\n", "Fatal Error");
-                Environment.Exit(-2);
+                Console.WriteLine("{0} >>> Check srcds path -> Open", DateTime.Now.ToString());
+                OpenFileDialog fileBrowser = new OpenFileDialog()
+                {
+                    Multiselect = false,
+                    Filter = "CSGO Dedicated Server (srcds.exe)|srcds.exe",
+                };
+
+                if(fileBrowser.ShowDialog() != DialogResult.OK)
+                {
+                    MessageBox.Show("Application Exit!\nYou can modify server_config.ini manually!", "CSGO Server Manager");
+                    Environment.Exit(0);
+                }
+                else
+                {
+                    srcdspath = fileBrowser.FileName;
+                    Configs.Write("Global", "srcdsPath", srcdspath);
+                }
+            }
+
+            string steamCmds = Configs.ContentValue("Global", "steamCmds", Environment.CurrentDirectory + "\\steamcmd1.exe");
+            Console.WriteLine("{0} >>> Check steamcmd path -> {1}", DateTime.Now.ToString(), steamCmds);
+            while(!File.Exists(steamCmds))
+            {
+                Console.WriteLine("{0} >>> Check steamcmd path -> Open", DateTime.Now.ToString());
+                OpenFileDialog fileBrowser = new OpenFileDialog()
+                {
+                    Multiselect = false,
+                    Filter = "SteamCmd (steamcmd.exe)|steamcmd.exe",
+                };
+
+                if (fileBrowser.ShowDialog() != DialogResult.OK)
+                {
+                    MessageBox.Show("Application Exit!\nYou can modify server_config.ini manually!", "CSGO Server Manager");
+                    Environment.Exit(0);
+                }
+                else
+                {
+                    steamCmds = fileBrowser.FileName;
+                    Configs.Write("Global", "steamCmds", steamCmds);
+                }
             }
 
             Process[] process = Process.GetProcessesByName("srcds");
@@ -109,6 +149,11 @@ namespace CSGO_Server_Manager
                 while(!int.TryParse(Global.pt, out port));
             }
 
+            if(!configs)
+            {
+                Console.WriteLine("{0} >>> Configs was initialized -> You can modify server_config.ini manually!", DateTime.Now.ToString());
+            }
+
             if(!Helper.PortAvailable(port))
             {
                 Console.WriteLine("{0} >>> Port[{1}] is unavailable! Finding Application...", DateTime.Now.ToString(), port);
@@ -135,6 +180,10 @@ namespace CSGO_Server_Manager
                 }
                 Console.WriteLine("{0} >>> TokenApi -> feature is available.", DateTime.Now.ToString());
                 new Thread(Thread_CheckToken).Start();
+            }
+            else
+            {
+                Console.WriteLine("{0} >>> TokenApi -> ApiKey was not found.", DateTime.Now.ToString());
             }
 
             Global.tcrash = new Thread(Thread_CheckCrashs);
@@ -243,16 +292,16 @@ namespace CSGO_Server_Manager
             string args = "-console -game csgo" + " "
                         + "-ip " + Global.ip + " "
                         + "-port " + Global.pt + " "
-                        + ((!string.IsNullOrEmpty(insecure) && int.TryParse(insecure, out int novalveac) && novalveac == 1) ? "-insecure " : " ")
-                        + ((!string.IsNullOrEmpty(tickrate) && int.TryParse(tickrate, out int TickRate)) ? string.Format("-tickrate {0} ", TickRate) : " ")
-                        + ((!string.IsNullOrEmpty(maxplays) && int.TryParse(maxplays, out int maxPlays)) ? string.Format("-maxplayers_override {0} ", maxPlays) : " ")
-                        + ((!string.IsNullOrEmpty(nobotsex) && int.TryParse(nobotsex, out int nobots) && nobots == 1) ? "-nobots " : " ")
-                        + ((!string.IsNullOrEmpty(gametype) && int.TryParse(gametype, out int gameType)) ? string.Format("+gametype {0} ", gameType) : " ")
-                        + ((!string.IsNullOrEmpty(gamemode) && int.TryParse(gamemode, out int gameMode)) ? string.Format("+gamemode {0} ", gameMode) : " ")
-                        + ((!string.IsNullOrEmpty(mapgroup)) ? string.Format("+mapgroup {0} ", mapgroup) : " ")
-                        + ((!string.IsNullOrEmpty(startmap)) ? string.Format("+map {0} ", startmap) : " ")
-                        + ((!string.IsNullOrEmpty(accounts)) ? string.Format("+sv_setsteamaccount {0} ", accounts) : " ")
-                        + ((!string.IsNullOrEmpty(groupids)) ? string.Format("+sv_steamgroup {0} ", groupids) : " ");
+                        + ((!string.IsNullOrEmpty(insecure) && int.TryParse(insecure, out int novalveac) && novalveac == 1) ? "-insecure " : "")
+                        + ((!string.IsNullOrEmpty(tickrate) && int.TryParse(tickrate, out int TickRate)) ? string.Format("-tickrate {0} ", TickRate) : "")
+                        + ((!string.IsNullOrEmpty(maxplays) && int.TryParse(maxplays, out int maxPlays)) ? string.Format("-maxplayers_override {0} ", maxPlays) : "")
+                        + ((!string.IsNullOrEmpty(nobotsex) && int.TryParse(nobotsex, out int nobots) && nobots == 1) ? "-nobots " : "")
+                        + ((!string.IsNullOrEmpty(gametype) && int.TryParse(gametype, out int gameType)) ? string.Format("+gametype {0} ", gameType) : "")
+                        + ((!string.IsNullOrEmpty(gamemode) && int.TryParse(gamemode, out int gameMode)) ? string.Format("+gamemode {0} ", gameMode) : "")
+                        + ((!string.IsNullOrEmpty(mapgroup)) ? string.Format("+mapgroup {0} ", mapgroup) : "")
+                        + ((!string.IsNullOrEmpty(startmap)) ? string.Format("+map {0} ", startmap) : "")
+                        + ((!string.IsNullOrEmpty(accounts)) ? string.Format("+sv_setsteamaccount {0} ", accounts) : "")
+                        + ((!string.IsNullOrEmpty(groupids)) ? string.Format("+sv_steamgroup {0} ", groupids) : "");
 
             try
             {
@@ -472,7 +521,7 @@ namespace CSGO_Server_Manager
                 Write("SteamWorks", "Group", "null");
 
                 Write("Server", "IP", Helper.GetLocalIpAddress());
-                Write("Server", "Port", "27015");
+                Write("Server", "Port", "null");
                 Write("Server", "Insecure", "0");
                 Write("Server", "TickRate", "128");
                 Write("Server", "MaxPlays", "64");
@@ -666,7 +715,7 @@ namespace CSGO_Server_Manager
             serverSock.ReceiveTimeout = 100;
             try
             {
-                serverSock.SendTo(request, new IPEndPoint(IPAddress.Parse(Configs.ContentValue("Server", "IP", null)), int.Parse(Configs.ContentValue("Server", "Port", null))));
+                serverSock.SendTo(request, new IPEndPoint(IPAddress.Parse(Global.ip), int.Parse(Global.pt)));
             }
             catch(Exception e)
             {
