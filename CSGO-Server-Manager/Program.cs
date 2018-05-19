@@ -48,7 +48,7 @@ namespace CSGO_Server_Manager
         [STAThread]
         static void Main(string[] args)
         {
-            Console.Title = "CSGO Server Manager v1.0.5";
+            Console.Title = "CSGO Server Manager v1.0.5.Fix";
 
             Console.WriteLine(@"     )                                        (        *     ");
             Console.WriteLine(@"  ( /(          (                       (     )\ )   (  `    ");
@@ -64,7 +64,7 @@ namespace CSGO_Server_Manager
             bool configs = Configs.Check();
             if(!configs)
             {
-                Console.WriteLine("{0} >>> Configs was not found -> Auto Generated in work path of application.", DateTime.Now.ToString());
+                Console.WriteLine("{0} >>> Configs was not found -> Auto Generated.", DateTime.Now.ToString());
             }
 
             Helper.WatchFile();
@@ -79,7 +79,7 @@ namespace CSGO_Server_Manager
 
                 if(fileBrowser.ShowDialog() != DialogResult.OK)
                 {
-                    MessageBox.Show("Application Exit!\nYou can modify server_config.ini manually!", "CSGO Server Manager");
+                    MessageBox.Show("Application Exit!\nYou can modify it manually!", "CSGO Server Manager");
                     Environment.Exit(0);
                 }
                 else
@@ -99,7 +99,7 @@ namespace CSGO_Server_Manager
 
                 if (fileBrowser.ShowDialog() != DialogResult.OK)
                 {
-                    MessageBox.Show("Application Exit!\nYou can modify server_config.ini manually!", "CSGO Server Manager");
+                    MessageBox.Show("Application Exit!\nYou can modify it manually!", "CSGO Server Manager");
                     Environment.Exit(0);
                 }
                 else
@@ -143,7 +143,7 @@ namespace CSGO_Server_Manager
 
             if(!configs)
             {
-                Console.WriteLine("{0} >>> Configs was initialized -> You can modify server_config.ini manually!", DateTime.Now.ToString());
+                Console.WriteLine("{0} >>> Configs was initialized -> You can modify it manually!", DateTime.Now.ToString());
             }
 
             if(!Helper.PortAvailable(port))
@@ -259,7 +259,8 @@ namespace CSGO_Server_Manager
                             Console.WriteLine("show   - show srcds console window.");
                             Console.WriteLine("hide   - hide srcds console window.");
                             Console.WriteLine("exec   - exec command into srcds.");
-                            Console.WriteLine("quit   - quit srcds and close app.");
+                            Console.WriteLine("quit   - quit srcds and application.");
+                            Console.WriteLine("exit   - quit srcds and application.");
                             Console.WriteLine("update - force srcds update.");
                         }
                         break;
@@ -317,7 +318,8 @@ namespace CSGO_Server_Manager
             Console.WriteLine("show   - show srcds console window.");
             Console.WriteLine("hide   - hide srcds console window.");
             Console.WriteLine("exec   - exec command into srcds.");
-            Console.WriteLine("quit   - quit srcds and close app.");
+            Console.WriteLine("quit   - quit srcds and application.");
+            Console.WriteLine("exit   - quit srcds and application.");
             Console.WriteLine("update - force srcds update.");
             Console.Write(Environment.NewLine);
 
@@ -567,6 +569,11 @@ namespace CSGO_Server_Manager
             return temp.ToString();
         }
 
+        static bool Create(string section, string key, string val)
+        {
+            return WritePrivateProfileString(section, key, val, Environment.CurrentDirectory + "\\server_config.ini");
+        }
+
         public static bool Set(string section, string key, string val)
         {
             Global.watcher.EnableRaisingEvents = false;
@@ -593,7 +600,6 @@ namespace CSGO_Server_Manager
             StreamWriter file = new StreamWriter(Environment.CurrentDirectory + "\\server_config_backup.ini", false, Encoding.Unicode);
             file.Write(Global.backup);
             file.Close();
-            //File.Delete(Environment.CurrentDirectory + "\\server_config.ini");
             File.Copy(Environment.CurrentDirectory + "\\server_config_backup.ini", Environment.CurrentDirectory + "\\server_config.ini", true);
             Global.watcher.EnableRaisingEvents = true;
         }
@@ -602,24 +608,24 @@ namespace CSGO_Server_Manager
         {
             if(!File.Exists(Environment.CurrentDirectory + "\\server_config.ini"))
             {
-                Set("Global", "srcdsPath", Environment.CurrentDirectory + "\\srcds.exe");
-                Set("Global", "steamCmds", Environment.CurrentDirectory + "\\steamcmd.exe");
+                Create("Global", "srcdsPath", Environment.CurrentDirectory + "\\srcds.exe");
+                Create("Global", "steamPath", Environment.CurrentDirectory + "\\steamcmd.exe");
 
-                Set("SteamWorks", "Token", "null");
-                Set("SteamWorks", "Group", "null");
+                Create("SteamWorks", "Token", "null");
+                Create("SteamWorks", "Group", "null");
 
-                Set("Server", "IP", Helper.GetLocalIpAddress());
-                Set("Server", "Port", "null");
-                Set("Server", "Insecure", "0");
-                Set("Server", "TickRate", "128");
-                Set("Server", "MaxPlays", "64");
-                Set("Server", "NoBotsEx", "0");
-                Set("Server", "GameType", "0");
-                Set("Server", "GameMode", "0");
-                Set("Server", "MapGroup", "custom_maps");
-                Set("Server", "StartMap", "de_dust2");
+                Create("Server", "IP", Helper.GetLocalIpAddress());
+                Create("Server", "Port", "null");
+                Create("Server", "Insecure", "0");
+                Create("Server", "TickRate", "128");
+                Create("Server", "MaxPlays", "64");
+                Create("Server", "NoBotsEx", "0");
+                Create("Server", "GameType", "0");
+                Create("Server", "GameMode", "0");
+                Create("Server", "MapGroup", "custom_maps");
+                Create("Server", "StartMap", "de_dust2");
 
-                Set("CSGOtokens.com", "ApiKey", "null");
+                Create("CSGOtokens.com", "ApiKey", "null");
 
                 return false;
             }
@@ -805,14 +811,14 @@ namespace CSGO_Server_Manager
 
         private static void ConfigFile_OnRenamed(object sender, RenamedEventArgs e)
         {
-            Console.WriteLine("{0} >>> Detected: PAC file 'server_config.ini' was deleted.", DateTime.Now.ToString());
+            Console.WriteLine("{0} >>> Detected: Configs file 'server_config.ini' was deleted.", DateTime.Now.ToString());
             Console.WriteLine("If you want to delete 'server_config.ini', please quit the application first.", DateTime.Now.ToString());
             Configs.Restore();
         }
 
         private static void ConfigFile_OnChanged(object sender, FileSystemEventArgs e)
         {
-            Console.WriteLine("{0} >>> Detected: PAC file 'server_config.ini' was {1}.", DateTime.Now.ToString(), e.ChangeType.ToString().ToLower());
+            Console.WriteLine("{0} >>> Detected: Configs file 'server_config.ini' was {1}.", DateTime.Now.ToString(), e.ChangeType.ToString().ToLower());
             Console.WriteLine("If you want to edit 'server_config.ini', please quit the application first.", DateTime.Now.ToString());
             Configs.Restore();
         }
