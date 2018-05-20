@@ -32,6 +32,7 @@ using System.Net.NetworkInformation;
 
 namespace CSGO_Server_Manager
 {
+
     class Global
     {
         public static bool update = false;
@@ -926,6 +927,12 @@ namespace CSGO_Server_Manager
         public static bool latestVersion()
         {
             string uri = "https://api.steampowered.com/ISteamApps/UpToDateCheck/v0001/?appid=730&version=" + getVersion() + "&format=json";
+
+            while(http.IsBusy)
+            {
+                Thread.Sleep(1234);
+            }
+
             try
             {
                 string result = http.DownloadString(new Uri(uri));
@@ -946,6 +953,11 @@ namespace CSGO_Server_Manager
 
         public static int checkTokens(bool consoleLog = false)
         {
+            while (http.IsBusy)
+            {
+                Thread.Sleep(1234);
+            }
+
             string result = null;
             try
             {
