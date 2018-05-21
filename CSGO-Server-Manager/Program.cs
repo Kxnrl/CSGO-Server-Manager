@@ -49,7 +49,7 @@ namespace CSGO_Server_Manager
         [STAThread]
         static void Main(string[] args)
         {
-            Console.Title = "CSGO Server Manager v1.0.6";
+            Console.Title = "CSGO Server Manager v1.0.7";
 
             Console.WriteLine(@"     )                                        (        *     ");
             Console.WriteLine(@"  ( /(          (                       (     )\ )   (  `    ");
@@ -164,7 +164,7 @@ namespace CSGO_Server_Manager
             if(!string.IsNullOrEmpty(Configs.TKApikey))
             {
                 uint times = 0;
-                while(SteamApi.checkTokens(true) <= 0)
+                while(TokenApi.checkTokens(true) <= 0)
                 {
                     Console.WriteLine("{0} >>> TokenApi -> Checking ... {1}", DateTime.Now.ToString(), times++);
                 }
@@ -179,7 +179,7 @@ namespace CSGO_Server_Manager
             Global.tcrash = new Thread(Thread_CheckCrashs);
             Global.tcrash.Start();
 
-            Thread.Sleep(3000);
+            Thread.Sleep(4000);
 
             while(true)
             {
@@ -187,13 +187,13 @@ namespace CSGO_Server_Manager
                 if(Global.update)
                 {
                     Console.WriteLine("Updating ...");
-                    Thread.Sleep(3000);
+                    Thread.Sleep(5000);
                     continue;
                 }
                 if(Global.crash)
                 {
                     Console.WriteLine("Restarting ...");
-                    Thread.Sleep(3000);
+                    Thread.Sleep(5000);
                     continue;
                 }
                 switch(input.ToLower())
@@ -225,7 +225,6 @@ namespace CSGO_Server_Manager
                         Global.tcrash.Abort();
                         Global.tcrash = null;
                         Helper.KillSRCDS(true);
-                        MessageBox.Show("SRCDS exit!", "Message");
                         Environment.Exit(0);
                         break;
                     case "exit":
@@ -234,7 +233,6 @@ namespace CSGO_Server_Manager
                         Global.tcrash.Abort();
                         Global.tcrash = null;
                         Helper.KillSRCDS(true);
-                        MessageBox.Show("SRCDS exit!", "Message");
                         Environment.Exit(0);
                         break;
                     case "update":
@@ -252,9 +250,17 @@ namespace CSGO_Server_Manager
                         Global.update = true;
                         Global.tupdate.Abort();
                         Global.tupdate = null;
-                        Global.tcrash.Abort();
-                        Global.tcrash = null;
                         new Thread(Thread_UpdateCSGO).Start();
+                        break;
+                    case "restart":
+                        Console.WriteLine("Trigger server restart.");
+                        Global.tupdate.Abort();
+                        Global.tcrash.Abort();
+                        Global.tupdate = null;
+                        Global.tcrash = null;
+                        Helper.KillSRCDS(true);
+                        Global.tcrash = new Thread(Thread_CheckCrashs);
+                        Global.tcrash.Start();
                         break;
                     default:
                         if(input.StartsWith("exec "))
@@ -274,12 +280,13 @@ namespace CSGO_Server_Manager
                         else
                         {
                             Console.WriteLine("Commands: ");
-                            Console.WriteLine("show   - show srcds console window.");
-                            Console.WriteLine("hide   - hide srcds console window.");
-                            Console.WriteLine("exec   - exec command into srcds.");
-                            Console.WriteLine("quit   - quit srcds and application.");
-                            Console.WriteLine("exit   - quit srcds and application.");
-                            Console.WriteLine("update - force srcds update.");
+                            Console.WriteLine("show    - show srcds console window.");
+                            Console.WriteLine("hide    - hide srcds console window.");
+                            Console.WriteLine("exec    - exec command into srcds.");
+                            Console.WriteLine("quit    - quit srcds and application.");
+                            Console.WriteLine("exit    - quit srcds and application.");
+                            Console.WriteLine("update  - force srcds update.");
+                            Console.WriteLine("restart - force srcds restart.");
                         }
                         break;
                 }
@@ -333,15 +340,16 @@ namespace CSGO_Server_Manager
             Console.WriteLine("CommandLine: {0}", args);
             Console.WriteLine("");
             Console.WriteLine("Commands: ");
-            Console.WriteLine("show   - show srcds console window.");
-            Console.WriteLine("hide   - hide srcds console window.");
-            Console.WriteLine("exec   - exec command into srcds.");
-            Console.WriteLine("quit   - quit srcds and application.");
-            Console.WriteLine("exit   - quit srcds and application.");
-            Console.WriteLine("update - force srcds update.");
+            Console.WriteLine("show    - show srcds console window.");
+            Console.WriteLine("hide    - hide srcds console window.");
+            Console.WriteLine("exec    - exec command into srcds.");
+            Console.WriteLine("quit    - quit srcds and application.");
+            Console.WriteLine("exit    - quit srcds and application.");
+            Console.WriteLine("update  - force srcds update.");
+            Console.WriteLine("restart - force srcds restart.");
             Console.Write(Environment.NewLine);
 
-            Thread.Sleep(3000);
+            Thread.Sleep(5000);
             Window.Hide((int)Global.srcds.MainWindowHandle);
 
             Global.tupdate = new Thread(Thread_UpdateCheck);
@@ -352,12 +360,12 @@ namespace CSGO_Server_Manager
 
             while(true)
             {
-                Thread.Sleep(1234);
+                Thread.Sleep(2000);
 
                 if(Global.update)
                 {
                     Global.tcrash = null;
-                    Global.tcrash.Abort();
+                    Thread.CurrentThread.Abort();
                     return;
                 }
 
@@ -385,7 +393,7 @@ namespace CSGO_Server_Manager
             if(!Global.srcds.HasExited)
                 Helper.KillSRCDS(false);
 
-            Thread.Sleep(1000);
+            Thread.Sleep(1500);
             Global.tcrash = new Thread(Thread_CheckCrashs);
             Global.tcrash.Start();
             Thread.CurrentThread.Abort();
@@ -409,14 +417,12 @@ namespace CSGO_Server_Manager
                     }
                     Global.update = true;
                     Global.tupdate = null;
-                    Global.tcrash.Abort();
-                    Global.tcrash = null;
                     new Thread(Thread_UpdateCSGO).Start();
                     Thread.CurrentThread.Abort();
                     break;
                 }
 
-                Thread.Sleep(120000);
+                Thread.Sleep(300000);
             }
             while(true);
         }
@@ -426,21 +432,29 @@ namespace CSGO_Server_Manager
             Helper.KillSRCDS(true);
             Console.WriteLine("{0} >>> Starting Update!", DateTime.Now.ToString());
 
-            Thread.Sleep(4000);
-
             try
             {
+                Console.Write(Environment.NewLine);
+
                 ProcessStartInfo startInfo = new ProcessStartInfo();
                 startInfo.FileName = Configs.steamPath;
                 startInfo.UseShellExecute = false;
+                startInfo.CreateNoWindow = true;
                 startInfo.RedirectStandardOutput = true;
                 startInfo.Arguments = "+login anonymous +force_install_dir \"" + Environment.CurrentDirectory + "\" " + "+app_update 740 +quit";
 
                 Process process = Process.Start(startInfo);
-                StreamReader outputStreamReader = process.StandardOutput;
+                StreamReader reader = process.StandardOutput;
+                string line = reader.ReadLine();
+                Console.WriteLine(line);
+                while(!reader.EndOfStream)
+                {
+                    line = reader.ReadLine();
+                    Console.WriteLine(line);
+                    if(line.ToLower().StartsWith("error!"))
+                        throw new Exception("Update Error: " + line);
+                }
                 process.WaitForExit();
-                Console.Write(Environment.NewLine);
-                Console.Write(outputStreamReader.ReadToEnd());
                 Console.Write(Environment.NewLine);
                 process.Close();
             }
@@ -451,19 +465,20 @@ namespace CSGO_Server_Manager
 
             Console.WriteLine("{0} >>> Update successful!", DateTime.Now.ToString());
 
-            Thread.Sleep(3000);
+            Thread.Sleep(1000);
 
             Global.update = false;
             new Thread(Thread_CheckCrashs).Start();
+            Thread.CurrentThread.Abort();
         }
 
         static void Thread_CheckToken()
         {
             while(true)
             {
-                Thread.Sleep(600000);
+                Thread.Sleep(1200000);
 
-                if(SteamApi.checkTokens() == 1)
+                if(TokenApi.checkTokens() == 1)
                 {
                     Global.tupdate.Abort();
                     Global.tupdate = null;
@@ -484,7 +499,7 @@ namespace CSGO_Server_Manager
 
                     Message.Write(Global.srcds.MainWindowHandle, "sm_kick @all \"Server Restart\"");
                     Message.Send(Global.srcds.MainWindowHandle);
-                    Thread.Sleep(1234);
+                    Thread.Sleep(2000);
 
                     Helper.KillSRCDS(false);
                 }
@@ -767,7 +782,7 @@ namespace CSGO_Server_Manager
             Process netstats = new Process();
             netstats.StartInfo = startInfo;
             netstats.Start();
-            netstats.WaitForExit();
+            netstats.WaitForExit(1000);
 
             StreamReader sr = netstats.StandardOutput;
             string output = sr.ReadToEnd();
@@ -812,36 +827,46 @@ namespace CSGO_Server_Manager
             {
                 Message.Write(Global.srcds.MainWindowHandle, "sm_kick @all \"Server Restart\"");
                 Message.Send(Global.srcds.MainWindowHandle);
-                Thread.Sleep(1234);
+                Thread.Sleep(2000);
             }
 
             Message.Write(Global.srcds.MainWindowHandle, "quit");
             Message.Send(Global.srcds.MainWindowHandle);
-            Thread.Sleep(6666);
 
-            if(!Global.srcds.HasExited)
+            uint sec = 0;
+            while(!Global.srcds.HasExited)
             {
-                Console.WriteLine("{0} >>> Timeout -> Force Kill SRCDS! pid[{1}]", DateTime.Now.ToString(), Global.srcds.Id);
-                Global.srcds.Kill();
+                Thread.Sleep(1000);
+                if(++sec >= 5)
+                {
+                    Console.WriteLine("{0} >>> Timeout -> Force Kill SRCDS! pid[{1}]", DateTime.Now.ToString(), Global.srcds.Id);
+                    Global.srcds.Kill();
+                    break;
+                }
             }
 
             Global.srcds = null;
-            Thread.Sleep(666);
+            Thread.Sleep(500);
         }
 
         public static void KillSRCDS(Process srcds)
         {
             Message.Write(srcds.MainWindowHandle, "quit");
             Message.Send(srcds.MainWindowHandle);
-            Thread.Sleep(6666);
 
-            if(!srcds.HasExited)
+            uint sec = 0;
+            while(!srcds.HasExited)
             {
-                Console.WriteLine("{0} >>> Timeout -> Force Kill SRCDS! pid[{1}]", DateTime.Now.ToString(), srcds.Id);
-                srcds.Kill();
+                Thread.Sleep(1000);
+                if(++sec >= 5)
+                {
+                    Console.WriteLine("{0} >>> Timeout -> Force Kill SRCDS! pid[{1}]", DateTime.Now.ToString(), srcds.Id);
+                    srcds.Kill();
+                    break;
+                }
             }
 
-            Thread.Sleep(666);
+            Thread.Sleep(500);
         }
 
         public static void WatchFile()
@@ -928,11 +953,6 @@ namespace CSGO_Server_Manager
         {
             string uri = "https://api.steampowered.com/ISteamApps/UpToDateCheck/v0001/?appid=730&version=" + getVersion() + "&format=json";
 
-            while(http.IsBusy)
-            {
-                Thread.Sleep(1234);
-            }
-
             try
             {
                 string result = http.DownloadString(new Uri(uri));
@@ -951,26 +971,28 @@ namespace CSGO_Server_Manager
             return true;
         }
 
+    }
+
+    class TokenApi
+    {
+        static WebClient http = new WebClient();
+
         public static int checkTokens(bool consoleLog = false)
         {
-            while (http.IsBusy)
-            {
-                Thread.Sleep(1234);
-            }
-
             string result = null;
+
             try
             {
                 result = http.DownloadString(new Uri("https://csgotokens.com/token-api.php?ip=" + Configs.wwip + ":" + Configs.port + "&key=" + Configs.TKApikey));
 
-                if(consoleLog)
+                if (consoleLog)
                 {
                     Console.WriteLine("{0} >>> TokenApi -> Init {1}", DateTime.Now.ToString(), result);
                 }
 
-                if(result.Equals(Configs.accounts))
+                if (result.Equals(Configs.accounts))
                 {
-                    if(consoleLog)
+                    if (consoleLog)
                     {
                         Console.WriteLine("{0} >>> TokenApi -> Token status is OK.", DateTime.Now.ToString());
                     }
@@ -978,7 +1000,7 @@ namespace CSGO_Server_Manager
                 }
                 else
                 {
-                    if(result.Length == 32)
+                    if (result.Length == 32)
                     {
                         Console.WriteLine("{0} >>> Token was banned -> old token [{1}] -> new token [{2}]", DateTime.Now.ToString(), Configs.accounts, result);
                         Configs.accounts = result;
@@ -991,7 +1013,7 @@ namespace CSGO_Server_Manager
                     }
                 }
             }
-            catch(Exception e)
+            catch (Exception e)
             {
                 Console.WriteLine("{0} >>> TokenApi Exception: {0}", DateTime.Now.ToString(), e.Message);
                 return -2;
