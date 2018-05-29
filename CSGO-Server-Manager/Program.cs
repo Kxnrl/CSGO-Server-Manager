@@ -438,13 +438,14 @@ namespace CSGO_Server_Manager
 
                 ProcessStartInfo startInfo = new ProcessStartInfo();
                 startInfo.FileName = Configs.steamPath;
-                startInfo.UseShellExecute = false;
-                startInfo.CreateNoWindow = true;
-                startInfo.RedirectStandardOutput = true;
-                startInfo.Arguments = "+login anonymous +force_install_dir \"" + Environment.CurrentDirectory + "\" " + "+app_update 740 +quit";
+                //startInfo.UseShellExecute = false;
+                //startInfo.CreateNoWindow = true;
+                //startInfo.RedirectStandardOutput = true;
+                startInfo.Arguments = "+login anonymous +force_install_dir \"" + Environment.CurrentDirectory + "\" " + "+app_update 740 validate";
 
                 Process process = Process.Start(startInfo);
-                StreamReader reader = process.StandardOutput;
+                process.WaitForExit();
+                /*StreamReader reader = process.StandardOutput;
                 string line = reader.ReadLine();
                 Console.WriteLine(line);
                 while(!reader.EndOfStream)
@@ -454,8 +455,7 @@ namespace CSGO_Server_Manager
                     if(line.ToLower().StartsWith("error!"))
                         throw new Exception("Update Error: " + line);
                 }
-                process.WaitForExit();
-                Console.Write(Environment.NewLine);
+                Console.Write(Environment.NewLine);*/
                 process.Close();
             }
             catch(Exception e)
@@ -897,7 +897,7 @@ namespace CSGO_Server_Manager
 
     class A2S
     {
-        static byte[] request = new byte[9] { 0xFF, 0xFF, 0xFF, 0xFF, 0x55, 0xFF, 0xFF, 0xFF, 0xFF };
+        static byte[] request = new byte[9] { 0xFF, 0xFF, 0xFF, 0xFF, 0x69, 0xFF, 0xFF, 0xFF, 0xFF };
         static Socket serverSock = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
         public static bool Query(bool start)
         {
@@ -913,7 +913,7 @@ namespace CSGO_Server_Manager
                 return false;
             }
 
-            byte[] serverResponse = new byte[9];
+            byte[] serverResponse = new byte[128];
             try
             {
                 serverSock.Receive(serverResponse);
