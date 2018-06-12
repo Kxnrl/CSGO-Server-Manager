@@ -35,6 +35,7 @@ namespace CSGO_Server_Manager
 
     class Global
     {
+        public static bool A2SFireWall = false;
         public static bool update = false;
         public static bool crash = false;
         public static string backup = null;
@@ -49,7 +50,7 @@ namespace CSGO_Server_Manager
         [STAThread]
         static void Main(string[] args)
         {
-            Console.Title = "CSGO Server Manager v1.0.7";
+            Console.Title = "CSGO Server Manager v1.0.8";
 
             Console.WriteLine(@"     )                                        (        *     ");
             Console.WriteLine(@"  ( /(          (                       (     )\ )   (  `    ");
@@ -65,9 +66,11 @@ namespace CSGO_Server_Manager
             bool configs = Configs.Check();
             if(!configs)
             {
-                Console.WriteLine("{0} >>> Configs was not found -> Auto Generated.", DateTime.Now.ToString());
+                Console.WriteLine("{0} >>> Configs was not found -> Auto Generated.", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"));
             }
 
+            A2S.CheckFirewall();
+            Logger.Create();
             Helper.WatchFile();
 
             while(!File.Exists(Configs.srcdsPath))
@@ -86,7 +89,7 @@ namespace CSGO_Server_Manager
                 else
                 {
                     Configs.srcdsPath = fileBrowser.FileName;
-                    Console.WriteLine("{0} >>> Set SRCDS path -> {1}", DateTime.Now.ToString(), Configs.srcdsPath);
+                    Console.WriteLine("{0} >>> Set SRCDS path -> {1}", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"), Configs.srcdsPath);
                 }
             }
 
@@ -106,7 +109,7 @@ namespace CSGO_Server_Manager
                 else
                 {
                     Configs.steamPath = fileBrowser.FileName;
-                    Console.WriteLine("{0} >>> Set Steam path -> {1}", DateTime.Now.ToString(), Configs.steamPath);
+                    Console.WriteLine("{0} >>> Set Steam path -> {1}", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"), Configs.steamPath);
                 }
             }
 
@@ -118,7 +121,7 @@ namespace CSGO_Server_Manager
                     // what the fuck?
                 }
             }
-            Console.WriteLine("{0} >>> {1} SRCDS are running on current host.", DateTime.Now.ToString(), process.Length);
+            Console.WriteLine("{0} >>> {1} SRCDS are running on current host.", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"), process.Length);
 
             if(string.IsNullOrEmpty(Configs.wwip) || !IPAddress.TryParse(Configs.wwip, out IPAddress ipadr))
             {
@@ -142,38 +145,38 @@ namespace CSGO_Server_Manager
 
             if(!configs)
             {
-                Console.WriteLine("{0} >>> Configs was initialized -> You can modify it manually!", DateTime.Now.ToString());
+                Console.WriteLine("{0} >>> Configs was initialized -> You can modify it manually!", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"));
             }
 
             if(!Helper.PortAvailable(port))
             {
-                Console.WriteLine("{0} >>> Port[{1}] is unavailable! Finding Application...", DateTime.Now.ToString(), port);
+                Console.WriteLine("{0} >>> Port[{1}] is unavailable! Finding Application...", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"), port);
 
                 try
                 {
                     Process exe = Helper.GetAppByPort(port);
-                    Console.WriteLine("{0} >>> Trigger SRCDS Quit -> App[{1}] PID[{2}]", DateTime.Now.ToString(), exe.MainWindowTitle, exe.Id);
+                    Console.WriteLine("{0} >>> Trigger SRCDS Quit -> App[{1}] PID[{2}]", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"), exe.MainWindowTitle, exe.Id);
                     Helper.KillSRCDS(exe);
                 }
                 catch(Exception e)
                 {
-                    Console.WriteLine("{0} >>> Not found Application: {1}", DateTime.Now.ToString(), e.Message);
+                    Console.WriteLine("{0} >>> Not found Application: {1}", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"), e.Message);
                 }
             }
 
             if(!string.IsNullOrEmpty(Configs.TKApikey))
             {
                 uint times = 0;
-                while(TokenApi.checkTokens(true) <= 0)
+                while(TokenApi.CheckTokens(true) <= 0)
                 {
-                    Console.WriteLine("{0} >>> TokenApi -> Checking ... {1}", DateTime.Now.ToString(), times++);
+                    Console.WriteLine("{0} >>> TokenApi -> Checking ... {1}", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"), times++);
                 }
-                Console.WriteLine("{0} >>> TokenApi -> feature is available.", DateTime.Now.ToString());
+                Console.WriteLine("{0} >>> TokenApi -> feature is available.", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"));
                 new Thread(Thread_CheckToken).Start();
             }
             else
             {
-                Console.WriteLine("{0} >>> TokenApi -> ApiKey was not found.", DateTime.Now.ToString());
+                Console.WriteLine("{0} >>> TokenApi -> ApiKey was not found.", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"));
             }
 
             Global.tcrash = new Thread(Thread_CheckCrashs);
@@ -335,7 +338,7 @@ namespace CSGO_Server_Manager
             //    Console.WriteLine("MainWindow -> " + Global.srcds.MainWindowHandle);
             //}
 
-            Console.WriteLine("{0} >>> Srcds Started!", DateTime.Now.ToString());
+            Console.WriteLine("{0} >>> Srcds Started!", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"));
             Console.WriteLine("Start  Info: pid[{0}] path[{1}]", Global.srcds.Id, Global.srcds.MainModule.FileName);
             Console.WriteLine("CommandLine: {0}", args);
             Console.WriteLine("");
@@ -383,7 +386,7 @@ namespace CSGO_Server_Manager
                 if(a2stimeout < 10)
                     continue;
 
-                Console.WriteLine("{0} >>> SRCDS crashed!", DateTime.Now.ToString());
+                Console.WriteLine("{0} >>> SRCDS crashed!", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"));
                 Global.crash = true;
                 Global.tupdate.Abort();
                 Global.tcrash = null;
@@ -403,7 +406,7 @@ namespace CSGO_Server_Manager
         {
             do
             {
-                if(!SteamApi.latestVersion())
+                if(!SteamApi.GetLatestVersion())
                 {
                     for(int cd = 60; cd > 0; cd--)
                     {
@@ -430,45 +433,44 @@ namespace CSGO_Server_Manager
         static void Thread_UpdateCSGO()
         {
             Helper.KillSRCDS(true);
-            Console.WriteLine("{0} >>> Starting Update!", DateTime.Now.ToString());
+            Console.WriteLine("{0} >>> Starting Update!", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"));
 
             try
             {
                 Console.Write(Environment.NewLine);
 
-                ProcessStartInfo startInfo = new ProcessStartInfo();
-                startInfo.FileName = Configs.steamPath;
-                //startInfo.UseShellExecute = false;
-                //startInfo.CreateNoWindow = true;
-                //startInfo.RedirectStandardOutput = true;
-                startInfo.Arguments = "+login anonymous +force_install_dir \"" + Environment.CurrentDirectory + "\" " + "+app_update 740 validate";
-
-                Process process = Process.Start(startInfo);
-                process.WaitForExit();
-                /*StreamReader reader = process.StandardOutput;
-                string line = reader.ReadLine();
-                Console.WriteLine(line);
-                while(!reader.EndOfStream)
+                using (Process process = new Process())
                 {
-                    line = reader.ReadLine();
+                    process.StartInfo.FileName = Configs.steamPath;
+                    process.StartInfo.Arguments = "+login anonymous +force_install_dir \"" + Environment.CurrentDirectory + "\" " + "+app_update 740 +exit";
+                    process.Start();
+                    process.WaitForExit();
+                    /*StreamReader reader = process.StandardOutput;
+                    string line = reader.ReadLine();
                     Console.WriteLine(line);
-                    if(line.ToLower().StartsWith("error!"))
-                        throw new Exception("Update Error: " + line);
+                    while(!reader.EndOfStream)
+                    {
+                        line = reader.ReadLine();
+                        Console.WriteLine(line);
+                        if(line.ToLower().StartsWith("error!"))
+                            throw new Exception("Update Error: " + line);
+                    }
+                    Console.Write(Environment.NewLine);*/
                 }
-                Console.Write(Environment.NewLine);*/
-                process.Close();
             }
             catch(Exception e)
             {
                 Console.WriteLine("Update Failed: {0}", e.Message);
             }
 
-            Console.WriteLine("{0} >>> Update successful!", DateTime.Now.ToString());
+            Console.WriteLine("{0} >>> Update successful!", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"));
+            Logger.Log("["+ DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss") + "] >>> Update successful!");
 
             Thread.Sleep(1000);
 
             Global.update = false;
-            new Thread(Thread_CheckCrashs).Start();
+            Global.tcrash = new Thread(Thread_CheckCrashs);
+            Global.tcrash.Start();
             Thread.CurrentThread.Abort();
         }
 
@@ -478,12 +480,14 @@ namespace CSGO_Server_Manager
             {
                 Thread.Sleep(1200000);
 
-                if(TokenApi.checkTokens() == 1)
+                if(TokenApi.CheckTokens() == 1)
                 {
                     Global.tupdate.Abort();
                     Global.tupdate = null;
 
-                    for(int cd = 60; cd > 0; cd--)
+                    Logger.Log("[" + DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss") + "] >>> Update successful!");
+
+                    for (int cd = 60; cd > 0; cd--)
                     {
                         Console.WriteLine("Server restart in " + cd + " seconds");
                         Message.Write(Global.srcds.MainWindowHandle, "say Server restart in " + cd + " seconds");
@@ -497,11 +501,7 @@ namespace CSGO_Server_Manager
                     if(Global.crash)
                         continue;
 
-                    Message.Write(Global.srcds.MainWindowHandle, "sm_kick @all \"Server Restart\"");
-                    Message.Send(Global.srcds.MainWindowHandle);
-                    Thread.Sleep(2000);
-
-                    Helper.KillSRCDS(false);
+                    Helper.KillSRCDS(Global.srcds);
                 }
             }
         }
@@ -626,6 +626,7 @@ namespace CSGO_Server_Manager
             bool result = WritePrivateProfileString(section, key, val, Environment.CurrentDirectory + "\\server_config.ini");
             if(result)
             {
+                Global.backup = null;
                 Backup();
             }
             Global.watcher.EnableRaisingEvents = true;
@@ -634,18 +635,27 @@ namespace CSGO_Server_Manager
 
         private static void Backup()
         {
-            StreamReader file = new StreamReader(Environment.CurrentDirectory + "\\server_config.ini");
-            Global.backup = file.ReadToEnd();
-            file.Close();
-            file.Dispose();
+            using (StreamReader file = new StreamReader(Environment.CurrentDirectory + "\\server_config.ini"))
+            {
+                string backup = file.ReadToEnd();
+                if (backup.Length <= 128)
+                {
+                    Console.WriteLine("{0} >>> Failed to back up configs!", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"));
+                }
+                else Global.backup = backup;
+            }
         }
 
         public static void Restore()
         {
+            if (!string.IsNullOrEmpty(Global.backup))
+                return;
+
             Global.watcher.EnableRaisingEvents = false;
-            StreamWriter file = new StreamWriter(Environment.CurrentDirectory + "\\server_config_backup.ini", false, Encoding.Unicode);
-            file.Write(Global.backup);
-            file.Close();
+            using (StreamWriter file = new StreamWriter(Environment.CurrentDirectory + "\\server_config_backup.ini", false, Encoding.Unicode))
+            {
+                file.Write(Global.backup);
+            }
             File.Copy(Environment.CurrentDirectory + "\\server_config_backup.ini", Environment.CurrentDirectory + "\\server_config.ini", true);
             Global.watcher.EnableRaisingEvents = true;
         }
@@ -720,14 +730,6 @@ namespace CSGO_Server_Manager
 
         public static void Write(IntPtr hWnd, string message)
         {
-            /*
-            char[] cs = message.ToCharArray();
-            foreach(char c in cs)
-            {
-                SendMessage(hWnd, 0x0102, c, 0);
-            }
-            */
-
             byte[] bytes = Encoding.Unicode.GetBytes(message);
             foreach(byte b in bytes)
             {
@@ -745,8 +747,7 @@ namespace CSGO_Server_Manager
     {
         public static string GetLocalIpAddress()
         {
-            string hostName = Dns.GetHostName();
-            IPHostEntry IpEntry = Dns.GetHostEntry(hostName);
+            IPHostEntry IpEntry = Dns.GetHostEntry(Dns.GetHostName());
 
             for(int i = 0; i < IpEntry.AddressList.Length; i++)
             {
@@ -770,52 +771,50 @@ namespace CSGO_Server_Manager
 
         public static Process GetAppByPort(int checkPort)
         {
-            ProcessStartInfo startInfo = new ProcessStartInfo();
-            startInfo.FileName = "netstat.exe";
-            startInfo.Arguments = "-a -n -o";
-            startInfo.WindowStyle = ProcessWindowStyle.Hidden;
-            startInfo.UseShellExecute = false;
-            startInfo.RedirectStandardInput = true;
-            startInfo.RedirectStandardOutput = true;
-            startInfo.RedirectStandardError = true;
-
-            Process netstats = new Process();
-            netstats.StartInfo = startInfo;
-            netstats.Start();
-            netstats.WaitForExit(1000);
-
-            StreamReader sr = netstats.StandardOutput;
-            string output = sr.ReadToEnd();
-            if(netstats.ExitCode != 0)
-                throw new Exception("netstats ExitCode = " + netstats.ExitCode);
-
-            string[] lines = Regex.Split(output, "\r\n");
-            foreach(var line in lines)
+            using (Process netstats = new Process())
             {
-                // first line 嘻嘻
-                if(line.Trim().StartsWith("Proto"))
-                    continue;
+                netstats.StartInfo.FileName = "netstat.exe";
+                netstats.StartInfo.Arguments = "-a -n -o";
+                netstats.StartInfo.WindowStyle = ProcessWindowStyle.Hidden;
+                netstats.StartInfo.RedirectStandardInput = true;
+                netstats.StartInfo.RedirectStandardOutput = true;
+                netstats.StartInfo.RedirectStandardError = true;
+                netstats.Start();
+                netstats.WaitForExit(1000);
 
-                string[] parts = line.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                StreamReader sr = netstats.StandardOutput;
+                string output = sr.ReadToEnd();
+                if (netstats.ExitCode != 0)
+                    throw new Exception("netstats ExitCode = " + netstats.ExitCode);
 
-                if(parts.Length < 2)
-                    continue;
+                string[] lines = Regex.Split(output, "\r\n");
+                foreach (var line in lines)
+                {
+                    // first line 嘻嘻
+                    if (line.Trim().StartsWith("Proto"))
+                        continue;
 
-                if(!int.TryParse(parts[parts.Length - 1], out int pid))
-                    continue;
+                    string[] parts = line.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
 
-                if(!int.TryParse(parts[1].Split(':').Last(), out int port))
-                    continue;
+                    if (parts.Length < 2)
+                        continue;
 
-                if(port != checkPort)
-                    continue;
+                    if (!int.TryParse(parts[parts.Length - 1], out int pid))
+                        continue;
 
-                //Console.WriteLine("Find Result: Protocol[{0}]  Port[{1}]  PID[{2}]", parts[0], port, pid);
+                    if (!int.TryParse(parts[1].Split(':').Last(), out int port))
+                        continue;
 
-                return Process.GetProcessById(pid);
+                    if (port != checkPort)
+                        continue;
+
+                    //Console.WriteLine("Find Result: Protocol[{0}]  Port[{1}]  PID[{2}]", parts[0], port, pid);
+
+                    return Process.GetProcessById(pid);
+                }
             }
 
-            throw new Exception("Not Found in list[" + (lines.Length-1) + "]");
+            throw new Exception("Not Found in list [netstat.exe]");
         }
 
         public static void KillSRCDS(bool kickPlayer)
@@ -839,7 +838,7 @@ namespace CSGO_Server_Manager
                 Thread.Sleep(1000);
                 if(++sec >= 5)
                 {
-                    Console.WriteLine("{0} >>> Timeout -> Force Kill SRCDS! pid[{1}]", DateTime.Now.ToString(), Global.srcds.Id);
+                    Console.WriteLine("{0} >>> Timeout -> Force Kill SRCDS! pid[{1}]", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"), Global.srcds.Id);
                     Global.srcds.Kill();
                     break;
                 }
@@ -860,7 +859,7 @@ namespace CSGO_Server_Manager
                 Thread.Sleep(1000);
                 if(++sec >= 5)
                 {
-                    Console.WriteLine("{0} >>> Timeout -> Force Kill SRCDS! pid[{1}]", DateTime.Now.ToString(), srcds.Id);
+                    Console.WriteLine("{0} >>> Timeout -> Force Kill SRCDS! pid[{1}]", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"), srcds.Id);
                     srcds.Kill();
                     break;
                 }
@@ -882,23 +881,24 @@ namespace CSGO_Server_Manager
 
         private static void ConfigFile_OnRenamed(object sender, RenamedEventArgs e)
         {
-            Console.WriteLine("{0} >>> Detected: Configs file 'server_config.ini' was deleted.", DateTime.Now.ToString());
-            Console.WriteLine("If you want to delete 'server_config.ini', please quit the application first.", DateTime.Now.ToString());
+            Console.WriteLine("{0} >>> Detected: Configs file 'server_config.ini' was deleted.", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"));
+            Console.WriteLine("If you want to delete 'server_config.ini', please quit the application first.", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"));
             Configs.Restore();
         }
 
         private static void ConfigFile_OnChanged(object sender, FileSystemEventArgs e)
         {
-            Console.WriteLine("{0} >>> Detected: Configs file 'server_config.ini' was {1}.", DateTime.Now.ToString(), e.ChangeType.ToString().ToLower());
-            Console.WriteLine("If you want to edit 'server_config.ini', please quit the application first.", DateTime.Now.ToString());
+            Console.WriteLine("{0} >>> Detected: Configs file 'server_config.ini' was {1}.", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"), e.ChangeType.ToString().ToLower());
+            Console.WriteLine("If you want to edit 'server_config.ini', please quit the application first.", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"));
             Configs.Restore();
         }
     }
 
     class A2S
     {
-        static byte[] request = new byte[9] { 0xFF, 0xFF, 0xFF, 0xFF, 0x69, 0xFF, 0xFF, 0xFF, 0xFF };
+        static readonly byte[] request = new byte[9] { 0xFF, 0xFF, 0xFF, 0xFF, 0x69, 0xFF, 0xFF, 0xFF, 0xFF };
         static Socket serverSock = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+
         public static bool Query(bool start)
         {
             serverSock.SendTimeout = 100;
@@ -909,7 +909,7 @@ namespace CSGO_Server_Manager
             }
             catch(Exception e)
             {
-                Console.WriteLine("{0} >>> A2S Send Failed: {1}", DateTime.Now.ToString(), e.Message);
+                Console.WriteLine("{0} >>> A2S Send Failed: {1}", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"), e.Message);
                 return false;
             }
 
@@ -922,44 +922,63 @@ namespace CSGO_Server_Manager
             {
                 if(!start)
                 {
-                    Console.WriteLine("{0} >>> A2S Recv Failed: {1}", DateTime.Now.ToString(), e.Message);
+                    Console.WriteLine("{0} >>> A2S Recv Failed: {1}", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"), e.Message);
                 }
                 return false;
             }
 
             return true;
         }
+
+        public static void CheckFirewall()
+        {
+            if(File.Exists(Environment.CurrentDirectory + "\\csgo\\addons\\sourcemod\\extensions\\A2SFirewall.ext.dll"))
+            {
+                Global.A2SFireWall = true;
+                CheckAutoLoad();
+            }
+        }
+
+        private static void CheckAutoLoad()
+        {
+            if (!File.Exists(Environment.CurrentDirectory + "\\csgo\\addons\\sourcemod\\extensions\\A2SFirewall.autoload"))
+            {
+                
+            }
+        }
     }
 
     class SteamApi
     {
-        static WebClient http = new WebClient();
-
-        private static string getVersion()
+        private static string GetCurrentVersion()
         {
-            StreamReader sr = new StreamReader(Environment.CurrentDirectory + "\\csgo\\steam.inf");
-            string line = string.Empty;
-            while((line = sr.ReadLine()) != null)
+            using (StreamReader sr = new StreamReader(Environment.CurrentDirectory + "\\csgo\\steam.inf"))
             {
-                if(!line.StartsWith("PatchVersion"))
-                    continue;
+                string line = string.Empty;
+                while ((line = sr.ReadLine()) != null)
+                {
+                    if (!line.StartsWith("PatchVersion"))
+                        continue;
 
-                return line.Replace("PatchVersion=", "");
+                    return line.Replace("PatchVersion=", "");
+                }
             }
             return "0.0.0.0";
         }
 
-        public static bool latestVersion()
+        public static bool GetLatestVersion()
         {
-            string uri = "https://api.steampowered.com/ISteamApps/UpToDateCheck/v0001/?appid=730&version=" + getVersion() + "&format=json";
-
             try
             {
-                string result = http.DownloadString(new Uri(uri));
-                if(!result.Contains("\"success\":true"))
+                string result = null;
+                using (WebClient http = new WebClient())
                 {
-                    Console.WriteLine("{0} >>> SteamApi Failed: {1}", DateTime.Now.ToShortTimeString(), result);
-                    return true;
+                    result = http.DownloadString(new Uri("https://api.steampowered.com/ISteamApps/UpToDateCheck/v0001/?appid=730&version=" + GetCurrentVersion() + "&format=json"));
+                    if (!result.Contains("\"success\":true"))
+                    {
+                        Console.WriteLine("{0} >>> SteamApi Failed: {1}", DateTime.Now.ToShortTimeString(), result);
+                        return true;
+                    }
                 }
                 return result.Equals("{\"response\":{\"success\":true,\"up_to_date\":true,\"version_is_listable\":true}}");
             }
@@ -970,53 +989,80 @@ namespace CSGO_Server_Manager
 
             return true;
         }
-
     }
 
     class TokenApi
     {
-        static WebClient http = new WebClient();
-
-        public static int checkTokens(bool consoleLog = false)
+        public static int CheckTokens(bool consoleLog = false)
         {
-            string result = null;
-
             try
             {
-                result = http.DownloadString(new Uri("https://csgotokens.com/token-api.php?ip=" + Configs.wwip + ":" + Configs.port + "&key=" + Configs.TKApikey));
-
-                if (consoleLog)
+                int res = 0;
+                using (WebClient http = new WebClient())
                 {
-                    Console.WriteLine("{0} >>> TokenApi -> Init {1}", DateTime.Now.ToString(), result);
-                }
+                    string result = http.DownloadString(new Uri("https://csgotokens.com/token-api.php?ip=" + Configs.wwip + ":" + Configs.port + "&key=" + Configs.TKApikey));
 
-                if (result.Equals(Configs.accounts))
-                {
                     if (consoleLog)
                     {
-                        Console.WriteLine("{0} >>> TokenApi -> Token status is OK.", DateTime.Now.ToString());
+                        Console.WriteLine("{0} >>> TokenApi -> Init {1}", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"), result);
                     }
-                    return 2;
-                }
-                else
-                {
-                    if (result.Length == 32)
+
+                    if (result.Equals(Configs.accounts))
                     {
-                        Console.WriteLine("{0} >>> Token was banned -> old token [{1}] -> new token [{2}]", DateTime.Now.ToString(), Configs.accounts, result);
-                        Configs.accounts = result;
-                        return 1;
+                        if (consoleLog)
+                        {
+                            Console.WriteLine("{0} >>> TokenApi -> Token status is OK.", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"));
+                        }
+                        res = 2;
                     }
                     else
                     {
-                        Console.WriteLine("{0} >>> TokenApi Response: {1}", DateTime.Now.ToString(), result);
-                        return 0;
+                        if (result.Length == 32)
+                        {
+                            Logger.Log("[" + DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss") + "] >>> Token was banned -> old token [" + Configs.accounts + "] -> new token [" + result + "]");
+                            Console.WriteLine("{0} >>> Token was banned -> old token [{1}] -> new token [{2}]", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"), Configs.accounts, result);
+                            Configs.accounts = result;
+                            res = 1;
+                        }
+                        else
+                        {
+                            Console.WriteLine("{0} >>> TokenApi Response: {1}", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"), result);
+                            res = 0;
+                        }
                     }
                 }
+                return res;
             }
             catch (Exception e)
             {
-                Console.WriteLine("{0} >>> TokenApi Exception: {0}", DateTime.Now.ToString(), e.Message);
+                Console.WriteLine("{0} >>> TokenApi Exception: {1}", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"), e.Message);
                 return -2;
+            }
+        }
+    }
+
+    class Logger
+    {
+        private static readonly string logFile = Environment.CurrentDirectory + "\\server_log.log";
+        private static readonly string headers = "----------------------------------------\nCSGO Server Manager log File\nDescription: Server log in chronological order.\nThis file was auto generate by CSM.\n----------------------------------------\nYYYY/MM/DD HH:MM:SS | Event\n----------------------------------------";
+
+        public static void Create()
+        {
+            if(!File.Exists(logFile))
+            {
+                using (FileStream fs = File.Create(logFile))
+                {
+                    byte[] bytes = Encoding.UTF8.GetBytes(headers);
+                    fs.Write(bytes, 0, bytes.Length);
+                }
+            }
+        }
+
+        public static void Log(string log)
+        {
+            using (StreamWriter writer = new StreamWriter(logFile, true))
+            {
+                writer.WriteLine(log);
             }
         }
     }
