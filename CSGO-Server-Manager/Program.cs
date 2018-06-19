@@ -27,12 +27,12 @@ using System.Net.Sockets;
 using System.Text.RegularExpressions;
 using System.Linq;
 using System.Net.NetworkInformation;
+using Microsoft.Win32;
 
 //https://api.steampowered.com/ISteamApps/UpToDateCheck/v0001/?appid=730&version={version}&format=vdf
 
 namespace CSGO_Server_Manager
 {
-
     class Global
     {
         public static bool A2SFireWall = false;
@@ -50,7 +50,15 @@ namespace CSGO_Server_Manager
         [STAThread]
         static void Main(string[] args)
         {
-            Console.Title = "CSGO Server Manager v1.0.8";
+            // check run once
+            Mutex self = new Mutex(true, Application.StartupPath.GetHashCode().ToString(), out bool allow);
+            if (!allow)
+            {
+                MessageBox.Show("CSM is already running.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                Environment.Exit(-1);
+            }
+
+            Console.Title = "CSGO Server Manager v1.0.9";
 
             Console.WriteLine(@"     )                                        (        *     ");
             Console.WriteLine(@"  ( /(          (                       (     )\ )   (  `    ");
@@ -62,6 +70,13 @@ namespace CSGO_Server_Manager
             Console.WriteLine(@" _|\_\   \_, | |_|  \___|              \___| |___/  |_|  |_| ");
             Console.WriteLine(@"         |__/                                                ");
             Console.WriteLine(Environment.NewLine);
+
+            // Event
+            Application.ThreadException += ExceptionHandler_CurrentThread;
+            AppDomain.CurrentDomain.UnhandledException += ExceptionHandler_AppDomain;
+            Application.ApplicationExit += ApplicationHandler_OnExit;
+            SystemEvents.PowerModeChanged -= ApplicationHandler_PowerModeChanged;
+            PowerMode.NoSleep();
 
             bool configs = Configs.Check();
             if(!configs)
@@ -296,6 +311,47 @@ namespace CSGO_Server_Manager
             }
         }
 
+        private static void ApplicationHandler_PowerModeChanged(object sender, PowerModeChangedEventArgs e)
+        {
+            SystemEvents.PowerModeChanged -= ApplicationHandler_PowerModeChanged;
+
+            if (e.Mode == PowerModes.StatusChange)
+            {
+                Process.Start("powercfg -setactive 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c");
+                Thread.Sleep(5000);
+            }
+
+            SystemEvents.PowerModeChanged += ApplicationHandler_PowerModeChanged;
+        }
+
+        private static void ApplicationHandler_OnExit(object sender, EventArgs e)
+        {
+            Application.ApplicationExit -= ApplicationHandler_OnExit;
+            Application.ThreadException -= ExceptionHandler_CurrentThread;
+            AppDomain.CurrentDomain.UnhandledException -= ExceptionHandler_AppDomain;
+            SystemEvents.PowerModeChanged -= ApplicationHandler_PowerModeChanged;
+
+            Global.tcrash.Abort();
+            Global.tupdate.Abort();
+
+            if (Global.srcds != null)
+            {
+                Helper.KillSRCDS(false);
+            }
+        }
+
+        private static void ExceptionHandler_AppDomain(object sender, UnhandledExceptionEventArgs e)
+        {
+            Exception ex = e.ExceptionObject as Exception;
+            Logger.Error("----------------------------------------\nThread: "+ Thread.CurrentThread +"\nException: " + ex.GetType() + "\nMessage: " + ex.Message + "\nStackTrace: " + ex.StackTrace);
+        }
+
+        private static void ExceptionHandler_CurrentThread(object sender, ThreadExceptionEventArgs e)
+        {
+            Exception ex = e.Exception;
+            Logger.Error("----------------------------------------\nThread: " + Thread.CurrentThread + "\nException: " + ex.GetType() + "\nMessage: " + ex.Message + "\nStackTrace: " + ex.StackTrace);
+        }
+
         static void Thread_CheckCrashs()
         {
             string args = "-console -game csgo" + " "
@@ -314,12 +370,11 @@ namespace CSGO_Server_Manager
 
             try
             {
-                ProcessStartInfo startInfo = new ProcessStartInfo();
-                startInfo.FileName = Configs.srcdsPath;
-                startInfo.Arguments = args;
-                startInfo.UseShellExecute = false;
-
-                Global.srcds = Process.Start(startInfo);
+                Global.srcds = new Process();
+                Global.srcds.StartInfo.FileName = Configs.srcdsPath;
+                Global.srcds.StartInfo.Arguments = args;
+                Global.srcds.StartInfo.UseShellExecute = false;
+                Global.srcds.Start();
 
                 Thread.Sleep(1000);
             }
@@ -337,6 +392,8 @@ namespace CSGO_Server_Manager
             //    Console.WriteLine("FindWindow -> " + hwnd);
             //    Console.WriteLine("MainWindow -> " + Global.srcds.MainWindowHandle);
             //}
+
+            Logger.Log("[" + DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss") + "] >>> Srcds Started!");
 
             Console.WriteLine("{0} >>> Srcds Started!", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"));
             Console.WriteLine("Start  Info: pid[{0}] path[{1}]", Global.srcds.Id, Global.srcds.MainModule.FileName);
@@ -386,6 +443,7 @@ namespace CSGO_Server_Manager
                 if(a2stimeout < 10)
                     continue;
 
+                Logger.Log("[" + DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss") + "] >>> Srcds crashed!");
                 Console.WriteLine("{0} >>> SRCDS crashed!", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"));
                 Global.crash = true;
                 Global.tupdate.Abort();
@@ -434,6 +492,7 @@ namespace CSGO_Server_Manager
         {
             Helper.KillSRCDS(true);
             Console.WriteLine("{0} >>> Starting Update!", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"));
+            Logger.Log("[" + DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss") + "] >>> Srcds begin update!");
 
             try
             {
@@ -501,7 +560,13 @@ namespace CSGO_Server_Manager
                     if(Global.crash)
                         continue;
 
-                    Helper.KillSRCDS(Global.srcds);
+                    Global.tupdate.Abort();
+                    Global.tcrash.Abort();
+                    Global.tupdate = null;
+                    Global.tcrash = null;
+                    Helper.KillSRCDS(true);
+                    Global.tcrash = new Thread(Thread_CheckCrashs);
+                    Global.tcrash.Start();
                 }
             }
         }
@@ -648,7 +713,7 @@ namespace CSGO_Server_Manager
 
         public static void Restore()
         {
-            if (!string.IsNullOrEmpty(Global.backup))
+            if (string.IsNullOrEmpty(Global.backup))
                 return;
 
             Global.watcher.EnableRaisingEvents = false;
@@ -720,6 +785,21 @@ namespace CSGO_Server_Manager
             ShowWindow(hwnd, SW_HIDE);
         }
     }
+
+    class PowerMode
+    {
+        private const uint ES_CONTINUOUS      = 0x80000000;
+        private const uint ES_SYSTEM_REQUIRED = 0x00000001;
+
+        [DllImport("kernel32.dll")]
+        private static extern uint SetThreadExecutionState(uint esFlags);
+
+        public static void NoSleep()
+        {
+            SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED);
+        }
+    }
+
 
     class Message
     {
@@ -941,9 +1021,13 @@ namespace CSGO_Server_Manager
 
         private static void CheckAutoLoad()
         {
-            if (!File.Exists(Environment.CurrentDirectory + "\\csgo\\addons\\sourcemod\\extensions\\A2SFirewall.autoload"))
+            if(!File.Exists(Environment.CurrentDirectory + "\\csgo\\addons\\sourcemod\\extensions\\A2SFirewall.autoload"))
             {
-                
+                using(FileStream file = File.Create(Environment.CurrentDirectory + "\\csgo\\addons\\sourcemod\\extensions\\A2SFirewall.autoload"))
+                {
+                    byte[] info = Encoding.UTF8.GetBytes("This file created by CSGO Server Manager.");
+                    file.Write(info, 0, info.Length);
+                }
             }
         }
     }
@@ -976,7 +1060,7 @@ namespace CSGO_Server_Manager
                     result = http.DownloadString(new Uri("https://api.steampowered.com/ISteamApps/UpToDateCheck/v0001/?appid=730&version=" + GetCurrentVersion() + "&format=json"));
                     if (!result.Contains("\"success\":true"))
                     {
-                        Console.WriteLine("{0} >>> SteamApi Failed: {1}", DateTime.Now.ToShortTimeString(), result);
+                        Console.WriteLine("{0} >>> SteamApi Failed: {1}", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"), result);
                         return true;
                     }
                 }
@@ -984,7 +1068,7 @@ namespace CSGO_Server_Manager
             }
             catch(Exception e)
             {
-                Console.WriteLine("{0} >>> SteamApi Failed: {1}", DateTime.Now.ToShortTimeString(), e.Message);
+                Console.WriteLine("{0} >>> SteamApi Failed: {1}", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"), e.Message);
             }
 
             return true;
@@ -1044,7 +1128,7 @@ namespace CSGO_Server_Manager
     class Logger
     {
         private static readonly string logFile = Environment.CurrentDirectory + "\\server_log.log";
-        private static readonly string headers = "----------------------------------------\nCSGO Server Manager log File\nDescription: Server log in chronological order.\nThis file was auto generate by CSM.\n----------------------------------------\nYYYY/MM/DD HH:MM:SS | Event\n----------------------------------------";
+        private static readonly string errFile = Environment.CurrentDirectory + "\\server_err.log";
 
         public static void Create()
         {
@@ -1052,7 +1136,16 @@ namespace CSGO_Server_Manager
             {
                 using (FileStream fs = File.Create(logFile))
                 {
-                    byte[] bytes = Encoding.UTF8.GetBytes(headers);
+                    byte[] bytes = Encoding.UTF8.GetBytes("----------------------------------------\nCSGO Server Manager log File\nDescription: Server log in chronological order.\nThis file was auto generate by CSM.\n----------------------------------------\nYYYY/MM/DD HH:MM:SS | Event\n----------------------------------------\n");
+                    fs.Write(bytes, 0, bytes.Length);
+                }
+            }
+
+            if (!File.Exists(errFile))
+            {
+                using (FileStream fs = File.Create(errFile))
+                {
+                    byte[] bytes = Encoding.UTF8.GetBytes("----------------------------------------\nCSGO Server Manager log File\nDescription: Server error log in chronological order.\nThis file was auto generate by CSM.\n----------------------------------------\nYYYY/MM/DD HH:MM:SS | Event\n----------------------------------------\n");
                     fs.Write(bytes, 0, bytes.Length);
                 }
             }
@@ -1061,6 +1154,14 @@ namespace CSGO_Server_Manager
         public static void Log(string log)
         {
             using (StreamWriter writer = new StreamWriter(logFile, true))
+            {
+                writer.WriteLine(log);
+            }
+        }
+
+        public static void Error(string log)
+        {
+            using (StreamWriter writer = new StreamWriter(errFile, true))
             {
                 writer.WriteLine(log);
             }
