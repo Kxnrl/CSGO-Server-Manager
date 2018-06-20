@@ -48,6 +48,16 @@ namespace CSGO_Server_Manager
 
     class Program
     {
+        class tray
+        {
+            public static ContextMenu notifyMenu;
+            public static NotifyIcon notifyIcon;
+            public static MenuItem showHide;
+            public static MenuItem exitButton;
+        }
+
+        public static int myHandle = 0;
+
         [STAThread]
         static void Main(string[] args)
         {
@@ -59,6 +69,33 @@ namespace CSGO_Server_Manager
                 Environment.Exit(-1);
             }
 
+            myHandle = (int)Process.GetCurrentProcess().MainWindowHandle;
+
+            new Thread(
+                delegate ()
+                {
+                    tray.notifyMenu = new ContextMenu();
+                    tray.showHide = new MenuItem("Show");
+                    tray.exitButton = new MenuItem("Exit");
+                    tray.notifyMenu.MenuItems.Add(0, tray.showHide);
+                    tray.notifyMenu.MenuItems.Add(1, tray.exitButton);
+
+                    tray.notifyIcon = new NotifyIcon()
+                    {
+                        BalloonTipIcon = ToolTipIcon.Info,
+                        ContextMenu = tray.notifyMenu,
+                        Text = "CSGO Server Manager",
+                        Icon = Properties.Resources.icon,
+                        Visible = true,
+                    };
+
+                    tray.showHide.Click += new EventHandler(ApplicationHandler_TrayIcon);
+                    tray.exitButton.Click += new EventHandler(ApplicationHandler_TrayIcon);
+
+                    Application.Run();
+                }
+            ).Start();
+
             // Event
             Application.ThreadException += new ThreadExceptionEventHandler(ExceptionHandler_CurrentThread);
             AppDomain.CurrentDomain.UnhandledException += new UnhandledExceptionEventHandler(ExceptionHandler_AppDomain);
@@ -67,7 +104,7 @@ namespace CSGO_Server_Manager
             ConsoleCTRL.ConsoleClosed(new ConsoleCTRL.HandlerRoutine(ApplicationHandler_OnClose));
             PowerMode.NoSleep();
 
-            Console.Title = "CSGO Server Manager v1.1.0";
+            Console.Title = "CSGO Server Manager v1.1.1";
 
             Console.WriteLine(@"     )                                        (        *     ");
             Console.WriteLine(@"  ( /(          (                       (     )\ )   (  `    ");
@@ -197,7 +234,13 @@ namespace CSGO_Server_Manager
             Global.tcrash.Name = "Crash Thread";
             Global.tcrash.Start();
 
-            Thread.Sleep(4000);
+            Thread.Sleep(10000);
+
+            tray.notifyIcon.BalloonTipTitle = "CSGO Server Manager";
+            tray.notifyIcon.BalloonTipText = "Server Started!";
+            tray.notifyIcon.ShowBalloonTip(5000);
+            Window.Hide(myHandle);
+            currentShow = false;
 
             string input;
             while (true)
@@ -302,6 +345,43 @@ namespace CSGO_Server_Manager
             }
         }
 
+        private static bool currentShow = true;
+        private static void ApplicationHandler_TrayIcon(object sender, EventArgs e)
+        {
+            MenuItem item = (MenuItem)sender;
+            if(item == tray.exitButton)
+            {
+                tray.notifyIcon.Visible = false;
+                tray.notifyIcon.Dispose();
+                Thread.Sleep(50);
+                Environment.Exit(0);
+            }
+            else if(item == tray.showHide)
+            {
+                tray.notifyIcon.BalloonTipTitle = "CSGO Server Manager";
+
+                if (currentShow)
+                {
+                    currentShow = false;
+                    Window.Hide(myHandle);
+                    tray.showHide.Text = "Show";
+                    tray.notifyIcon.BalloonTipText = "Hide Window, Click icon to recovery window";
+                    if(Global.srcds != null && !Global.srcds.HasExited)
+                    {
+                        Window.Hide(Global.srcds.MainWindowHandle.ToInt32());
+                    }
+                }
+                else
+                {
+                    currentShow = true;
+                    Window.Show(myHandle);
+                    tray.showHide.Text = "Hide";
+                    tray.notifyIcon.BalloonTipText = "Show Window, Click icon to hide window";
+                }
+                tray.notifyIcon.ShowBalloonTip(5000);
+            }
+        }
+
         static void ApplicationHandler_PowerModeChanged(object sender, PowerModeChangedEventArgs e)
         {
             SystemEvents.PowerModeChanged -= ApplicationHandler_PowerModeChanged;
@@ -319,10 +399,17 @@ namespace CSGO_Server_Manager
         {
             if (CtrlType == ConsoleCTRL.CtrlTypes.CTRL_CLOSE_EVENT || CtrlType == ConsoleCTRL.CtrlTypes.CTRL_SHUTDOWN_EVENT)
             {
-                Global.tcrash.Abort();
-                Global.tupdate.Abort();
+                if (Global.tcrash != null)
+                {
+                    Global.tcrash.Abort();
+                }
+                if (Global.tupdate != null)
+                {
+                    Global.tupdate.Abort();
+                }
+
                 Helper.KillSRCDS(false);
-                Logger.Log("[" + DateTime.Now.ToString("yyyy / MM / dd HH: mm:ss") + "] >>> Exit by closing.");
+                Logger.Log("[" + DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss") + "] >>> Exit by closing.");
             }
 
             return true;
@@ -330,10 +417,17 @@ namespace CSGO_Server_Manager
 
         static void ApplicationHandler_OnExit(object sender, EventArgs e)
         {
-            Global.tcrash.Abort();
-            Global.tupdate.Abort();
+            if(Global.tcrash != null)
+            {
+                Global.tcrash.Abort();
+            }
+            if(Global.tupdate != null)
+            {
+                Global.tupdate.Abort();
+            }
+ 
             Helper.KillSRCDS(false);
-            Logger.Log("[" + DateTime.Now.ToString("yyyy / MM / dd HH: mm:ss") + "] >>> Exit by others.");
+            Logger.Log("[" + DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss") + "] >>> Exit by others.");
         }
 
         static void ExceptionHandler_AppDomain(object sender, UnhandledExceptionEventArgs args)
@@ -408,7 +502,7 @@ namespace CSGO_Server_Manager
             Console.Write(Environment.NewLine);
 
             Thread.Sleep(5000);
-            Window.Hide((int)Global.srcds.MainWindowHandle);
+            Window.Hide(Global.srcds.MainWindowHandle.ToInt32());
 
             Global.tupdate = new Thread(Thread_UpdateCheck);
             Global.tupdate.IsBackground = true;
@@ -1124,7 +1218,7 @@ namespace CSGO_Server_Manager
                 result = 0;
                 using (WebClient http = new WebClient())
                 {
-                    buffer = http.DownloadString(new Uri("https://csgotokens.com/token-api.php?ip=" + Configs.wwip + ":" + Configs.port + "&key=" + Configs.TKApikey));
+                    buffer = http.DownloadString("https://csgotokens.com/token-api.php?ip=" + Configs.wwip + ":" + Configs.port + "&key=" + Configs.TKApikey);
 
                     if (consoleLog)
                     {
