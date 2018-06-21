@@ -39,6 +39,7 @@ namespace CSGO_Server_Manager
         public static bool update = false;
         public static bool crash = false;
         public static string backup = null;
+        public static string currentMap = null;
         public static Process srcds = null;
         public static Thread tcrash = null;
         public static Thread tupdate = null;
@@ -71,31 +72,6 @@ namespace CSGO_Server_Manager
 
             myHandle = (int)Process.GetCurrentProcess().MainWindowHandle;
 
-            new Thread(
-                delegate ()
-                {
-                    tray.notifyMenu = new ContextMenu();
-                    tray.showHide = new MenuItem("Show");
-                    tray.exitButton = new MenuItem("Exit");
-                    tray.notifyMenu.MenuItems.Add(0, tray.showHide);
-                    tray.notifyMenu.MenuItems.Add(1, tray.exitButton);
-
-                    tray.notifyIcon = new NotifyIcon()
-                    {
-                        BalloonTipIcon = ToolTipIcon.Info,
-                        ContextMenu = tray.notifyMenu,
-                        Text = "CSGO Server Manager",
-                        Icon = Properties.Resources.icon,
-                        Visible = true,
-                    };
-
-                    tray.showHide.Click += new EventHandler(ApplicationHandler_TrayIcon);
-                    tray.exitButton.Click += new EventHandler(ApplicationHandler_TrayIcon);
-
-                    Application.Run();
-                }
-            ).Start();
-
             // Event
             Application.ThreadException += new ThreadExceptionEventHandler(ExceptionHandler_CurrentThread);
             AppDomain.CurrentDomain.UnhandledException += new UnhandledExceptionEventHandler(ExceptionHandler_AppDomain);
@@ -104,7 +80,7 @@ namespace CSGO_Server_Manager
             ConsoleCTRL.ConsoleClosed(new ConsoleCTRL.HandlerRoutine(ApplicationHandler_OnClose));
             PowerMode.NoSleep();
 
-            Console.Title = "CSGO Server Manager v1.1.1";
+            Console.Title = "CSGO Server Manager v1.1.2";
 
             Console.WriteLine(@"     )                                        (        *     ");
             Console.WriteLine(@"  ( /(          (                       (     )\ )   (  `    ");
@@ -234,7 +210,34 @@ namespace CSGO_Server_Manager
             Global.tcrash.Name = "Crash Thread";
             Global.tcrash.Start();
 
-            Thread.Sleep(10000);
+            Thread.Sleep(8000);
+
+            new Thread(
+                delegate ()
+                {
+                    tray.notifyMenu = new ContextMenu();
+                    tray.showHide = new MenuItem("Show");
+                    tray.exitButton = new MenuItem("Exit");
+                    tray.notifyMenu.MenuItems.Add(0, tray.showHide);
+                    tray.notifyMenu.MenuItems.Add(1, tray.exitButton);
+
+                    tray.notifyIcon = new NotifyIcon()
+                    {
+                        BalloonTipIcon = ToolTipIcon.Info,
+                        ContextMenu = tray.notifyMenu,
+                        Text = "CSGO Server Manager",
+                        Icon = Properties.Resources.icon,
+                        Visible = true,
+                    };
+
+                    tray.showHide.Click += new EventHandler(ApplicationHandler_TrayIcon);
+                    tray.exitButton.Click += new EventHandler(ApplicationHandler_TrayIcon);
+
+                    Application.Run();
+                }
+            ).Start();
+
+            Thread.Sleep(1000);
 
             tray.notifyIcon.BalloonTipTitle = "CSGO Server Manager";
             tray.notifyIcon.BalloonTipText = "Server Started!";
@@ -270,19 +273,9 @@ namespace CSGO_Server_Manager
                         Console.WriteLine("Hide SRCDS window.");
                         break;
                     case "quit":
-                        Global.tupdate.Abort();
-                        Global.tupdate = null;
-                        Global.tcrash.Abort();
-                        Global.tcrash = null;
-                        Helper.KillSRCDS(true);
                         Environment.Exit(0);
                         break;
                     case "exit":
-                        Global.tupdate.Abort();
-                        Global.tupdate = null;
-                        Global.tcrash.Abort();
-                        Global.tcrash = null;
-                        Helper.KillSRCDS(true);
                         Environment.Exit(0);
                         break;
                     case "update":
@@ -433,13 +426,13 @@ namespace CSGO_Server_Manager
         static void ExceptionHandler_AppDomain(object sender, UnhandledExceptionEventArgs args)
         {
             Exception e = args.ExceptionObject as Exception;
-            Logger.Error("----------------------------------------\nThread: "+ Thread.CurrentThread.Name +"\nException: " + e.GetType() + "\nMessage: " + e.Message + "\nStackTrace: " + e.StackTrace);
+            Logger.Error("----------------------------------------\nThread: "+ Thread.CurrentThread.Name +"\nException: " + e.GetType() + "\nMessage: " + e.Message + "\nStackTrace:\n" + e.StackTrace);
         }
 
         static void ExceptionHandler_CurrentThread(object sender, ThreadExceptionEventArgs args)
         {
             Exception e = args.Exception;
-            Logger.Error("----------------------------------------\nThread: " + Thread.CurrentThread.Name + "\nException: " + e.GetType() + "\nMessage: " + e.Message + "\nStackTrace: " + e.StackTrace);
+            Logger.Error("----------------------------------------\nThread: " + Thread.CurrentThread.Name + "\nException: " + e.GetType() + "\nMessage: " + e.Message + "\nStackTrace:\n" + e.StackTrace);
         }
 
         static void Thread_CheckCrashs()
@@ -473,7 +466,7 @@ namespace CSGO_Server_Manager
             catch(Exception e)
             {
                 Console.WriteLine("SRCDS start failed: {0}", e.Message);
-                Console.WriteLine("StackTrace: {0}", e.StackTrace);
+                Console.WriteLine("StackTrace:{0}{1}", Environment.NewLine, e.StackTrace);
                 Console.ReadKey(false);
                 Environment.Exit(-4);
             }
@@ -668,9 +661,7 @@ namespace CSGO_Server_Manager
                     if(Global.crash)
                         continue;
 
-                    Global.tupdate.Abort();
                     Global.tcrash.Abort();
-                    Global.tupdate = null;
                     Global.tcrash = null;
                     Helper.KillSRCDS(true);
 
@@ -1112,8 +1103,10 @@ namespace CSGO_Server_Manager
 
     class A2S
     {
-        private static readonly byte[] request = new byte[9] { 0xFF, 0xFF, 0xFF, 0xFF, 0x69, 0xFF, 0xFF, 0xFF, 0xFF };
-        private static byte[] response = new byte[1024];
+        private static readonly byte[] request_a2sping = new byte[9] { 0xFF, 0xFF, 0xFF, 0xFF, 0x69, 0xFF, 0xFF, 0xFF, 0xFF };
+        private static readonly byte[] request_a2scsm  = new byte[9] { 0xFF, 0xFF, 0xFF, 0xFF, 0x66, 0xFF, 0xFF, 0xFF, 0xFF };
+        private static byte[] response = new byte[128];
+        private static string results = null;
  
         public static bool Query(bool start)
         {
@@ -1126,8 +1119,36 @@ namespace CSGO_Server_Manager
 
                 try
                 {
-                    serverSock.SendTo(request, Global.ipep);
-                    serverSock.Receive(response);
+                    if (Global.A2SFireWall)
+                    {
+                        serverSock.SendTo(request_a2scsm, Global.ipep);
+                        serverSock.Receive(response);
+                        results = Encoding.UTF8.GetString(response).TrimEnd('\0');
+
+                        if (results.Length <= 5)
+                            return false;
+
+                        Console.WriteLine("Current Map:  {0}", results);
+
+                        if (Global.currentMap == null)
+                        {
+                            Global.currentMap = results;
+                            Console.WriteLine("{0} >>> Started srcds with map {1}", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"), Global.currentMap);
+                        }
+                        else if (!results.Equals(Global.currentMap))
+                        {
+                            Console.WriteLine("{0} >>> Changed Map from {1} to {2}", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"), Global.currentMap, results);
+                            Configs.startmap = results;
+                            Global.currentMap = results;
+                        }
+                        return true;
+                    }
+                    else
+                    {
+                        serverSock.SendTo(request_a2sping, Global.ipep);
+                        serverSock.Receive(response);
+                        return (response[4] == 0x6A);
+                    }
                 }
                 catch (Exception e)
                 {
@@ -1135,7 +1156,7 @@ namespace CSGO_Server_Manager
                 }
             }
 
-            return (response[4] == 0x6A);
+            return false;
         }
 
         public static void CheckFirewall()
