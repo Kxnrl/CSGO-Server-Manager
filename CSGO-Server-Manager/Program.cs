@@ -80,7 +80,7 @@ namespace CSGO_Server_Manager
             ConsoleCTRL.ConsoleClosed(new ConsoleCTRL.HandlerRoutine(ApplicationHandler_OnClose));
             PowerMode.NoSleep();
 
-            Console.Title = "CSGO Server Manager v1.1.2";
+            Console.Title = "CSGO Server Manager v1.1.3";
 
             Console.WriteLine(@"     )                                        (        *     ");
             Console.WriteLine(@"  ( /(          (                       (     )\ )   (  `    ");
@@ -1128,8 +1128,6 @@ namespace CSGO_Server_Manager
                         if (results.Length <= 5)
                             return false;
 
-                        Console.WriteLine("Current Map:  {0}", results);
-
                         if (Global.currentMap == null)
                         {
                             Global.currentMap = results;
@@ -1137,7 +1135,7 @@ namespace CSGO_Server_Manager
                         }
                         else if (!results.Equals(Global.currentMap))
                         {
-                            Console.WriteLine("{0} >>> Changed Map from {1} to {2}", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"), Global.currentMap, results);
+                            Console.WriteLine("{0} >>> Changed Map to {1}", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"), results);
                             Configs.startmap = results;
                             Global.currentMap = results;
                         }
@@ -1258,8 +1256,8 @@ namespace CSGO_Server_Manager
                     {
                         if (buffer.Length == 32)
                         {
-                            Logger.Log("[" + DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss") + "] >>> Token was banned -> old token [" + Configs.accounts + "] -> new token [" + result + "]");
-                            Console.WriteLine("{0} >>> Token was banned -> old token [{1}] -> new token [{2}]", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"), Configs.accounts, result);
+                            Logger.Log("[" + DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss") + "] >>> Token was banned -> old token [" + Configs.accounts + "] -> new token [" + buffer + "]");
+                            Console.WriteLine("{0} >>> Token was banned -> old token [{1}] -> new token [{2}]", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"), Configs.accounts, buffer);
                             Configs.accounts = buffer;
                             result = 1;
                         }
