@@ -80,7 +80,7 @@ namespace CSGO_Server_Manager
             ConsoleCTRL.ConsoleClosed(new ConsoleCTRL.HandlerRoutine(ApplicationHandler_OnClose));
             PowerMode.NoSleep();
 
-            Console.Title = "CSGO Server Manager v1.1.3";
+            Console.Title = "CSGO Server Manager v1.1.4";
 
             Console.WriteLine(@"     )                                        (        *     ");
             Console.WriteLine(@"  ( /(          (                       (     )\ )   (  `    ");
@@ -402,7 +402,7 @@ namespace CSGO_Server_Manager
                 }
 
                 Helper.KillSRCDS(false);
-                Logger.Log("[" + DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss") + "] >>> Exit by closing.");
+                Logger.Log("Exit by closing.");
             }
 
             return true;
@@ -420,19 +420,19 @@ namespace CSGO_Server_Manager
             }
  
             Helper.KillSRCDS(false);
-            Logger.Log("[" + DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss") + "] >>> Exit by others.");
+            Logger.Log("Exit by others.");
         }
 
         static void ExceptionHandler_AppDomain(object sender, UnhandledExceptionEventArgs args)
         {
             Exception e = args.ExceptionObject as Exception;
-            Logger.Error("----------------------------------------\nThread: "+ Thread.CurrentThread.Name +"\nException: " + e.GetType() + "\nMessage: " + e.Message + "\nStackTrace:\n" + e.StackTrace);
+            Logger.Error("\n----------------------------------------\nThread: "+ Thread.CurrentThread.Name +"\nException: " + e.GetType() + "\nMessage: " + e.Message + "\nStackTrace:\n" + e.StackTrace);
         }
 
         static void ExceptionHandler_CurrentThread(object sender, ThreadExceptionEventArgs args)
         {
             Exception e = args.Exception;
-            Logger.Error("----------------------------------------\nThread: " + Thread.CurrentThread.Name + "\nException: " + e.GetType() + "\nMessage: " + e.Message + "\nStackTrace:\n" + e.StackTrace);
+            Logger.Error("\n----------------------------------------\nThread: " + Thread.CurrentThread.Name + "\nException: " + e.GetType() + "\nMessage: " + e.Message + "\nStackTrace:\n" + e.StackTrace);
         }
 
         static void Thread_CheckCrashs()
@@ -459,7 +459,9 @@ namespace CSGO_Server_Manager
                 Global.srcds.StartInfo.FileName = Configs.srcdsPath;
                 Global.srcds.StartInfo.Arguments = args;
                 Global.srcds.StartInfo.UseShellExecute = false;
+                Global.srcds.EnableRaisingEvents = true;
                 Global.srcds.Start();
+                Global.srcds.Exited += new EventHandler(Srcds_OnExited);
 
                 Thread.Sleep(1000);
             }
@@ -478,7 +480,7 @@ namespace CSGO_Server_Manager
             //    Console.WriteLine("MainWindow -> " + Global.srcds.MainWindowHandle);
             //}
 
-            Logger.Log("[" + DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss") + "] >>> Srcds Started!");
+            Logger.Log("Srcds Started!");
 
             Console.WriteLine("{0} >>> Srcds Started!", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"));
             Console.WriteLine("Start  Info: pid[{0}] path[{1}]", Global.srcds.Id, Global.srcds.MainModule.FileName);
@@ -526,13 +528,20 @@ namespace CSGO_Server_Manager
                 else
                 {
                     a2stimeout = 0;
-                    Console.Title = "CSGO Server Manager - " + Global.srcds.MainWindowTitle;
+                    if(Global.srcds.MainWindowTitle.Length > 5)
+                    {
+                        Console.Title = "CSGO Server Manager - " + Global.srcds.MainWindowTitle;
+                        tray.notifyIcon.Text = Global.srcds.MainWindowTitle;
+                    }
                 }
 
                 if(a2stimeout < 10)
                     continue;
 
-                Logger.Log("[" + DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss") + "] >>> Srcds crashed!");
+                tray.notifyIcon.BalloonTipTitle = "CSGO Server Manager";
+                tray.notifyIcon.BalloonTipText = "Srcds crashed!";
+                tray.notifyIcon.ShowBalloonTip(5000);
+                Logger.Log("Srcds crashed!");
                 Console.WriteLine("{0} >>> SRCDS crashed!", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"));
                 Global.crash = true;
                 Global.tupdate.Abort();
@@ -542,6 +551,29 @@ namespace CSGO_Server_Manager
 
             if (!Global.srcds.HasExited)
                 Global.srcds.Kill();
+
+            Thread.Sleep(1500);
+            Global.tcrash = new Thread(Thread_CheckCrashs);
+            Global.tcrash.IsBackground = true;
+            Global.tcrash.Name = "Crash Thread";
+            Global.tcrash.Start();
+        }
+
+        private static void Srcds_OnExited(object sender, EventArgs e)
+        {
+            tray.notifyIcon.BalloonTipTitle = "CSGO Server Manager";
+            tray.notifyIcon.BalloonTipText = "Srcds crashed!";
+            tray.notifyIcon.ShowBalloonTip(5000);
+            Logger.Log("Srcds crashed!");
+            Console.WriteLine("{0} >>> SRCDS crashed!", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"));
+            Global.crash = true;
+            Global.tcrash.Abort();
+            Global.tupdate.Abort();
+            Global.tcrash = null;
+
+            Global.srcds.Close();
+            Global.srcds.Dispose();
+            Global.srcds = null;
 
             Thread.Sleep(1500);
             Global.tcrash = new Thread(Thread_CheckCrashs);
@@ -587,7 +619,7 @@ namespace CSGO_Server_Manager
 
             Helper.KillSRCDS(true);
             Console.WriteLine("{0} >>> Starting Update!", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"));
-            Logger.Log("[" + DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss") + "] >>> Srcds begin update!");
+            Logger.Log("Srcds begin update!");
 
             try
             {
@@ -613,7 +645,7 @@ namespace CSGO_Server_Manager
                 }
 
                 Console.WriteLine("{0} >>> Update successful!", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"));
-                Logger.Log("[" + DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss") + "] >>> Update successful!");
+                Logger.Log("Update successful!");
             }
             catch(Exception e)
             {
@@ -645,7 +677,7 @@ namespace CSGO_Server_Manager
                     Global.tupdate.Abort();
                     Global.tupdate = null;
 
-                    Logger.Log("[" + DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss") + "] >>> Update successful!");
+                    Logger.Log("Update successful!");
 
                     for (int cd = 60; cd > 0; cd--)
                     {
@@ -1029,7 +1061,9 @@ namespace CSGO_Server_Manager
             if(Global.srcds == null || Global.srcds.HasExited)
                 return;
 
-            if(kickPlayer)
+            Global.srcds.Refresh();
+
+            if (kickPlayer)
             {
                 Message.Write(Global.srcds.MainWindowHandle, "sm_kick @all \"Server Restart\"");
                 Message.Send(Global.srcds.MainWindowHandle);
@@ -1051,6 +1085,8 @@ namespace CSGO_Server_Manager
                 }
             }
 
+            Global.srcds.Close();
+            Global.srcds.Dispose();
             Global.srcds = null;
             Thread.Sleep(500);
         }
@@ -1059,6 +1095,8 @@ namespace CSGO_Server_Manager
         {
             Message.Write(srcds.MainWindowHandle, "quit");
             Message.Send(srcds.MainWindowHandle);
+
+            srcds.Refresh();
 
             uint sec = 0;
             while(!srcds.HasExited)
@@ -1072,6 +1110,8 @@ namespace CSGO_Server_Manager
                 }
             }
 
+            srcds.Close();
+            srcds.Dispose();
             Thread.Sleep(500);
         }
 
@@ -1123,7 +1163,7 @@ namespace CSGO_Server_Manager
                     {
                         serverSock.SendTo(request_a2scsm, Global.ipep);
                         serverSock.Receive(response);
-                        results = Encoding.UTF8.GetString(response).TrimEnd('\0');
+                        results = Encoding.UTF8.GetString(response).Trim();
 
                         if (results.Length <= 5)
                             return false;
@@ -1256,7 +1296,7 @@ namespace CSGO_Server_Manager
                     {
                         if (buffer.Length == 32)
                         {
-                            Logger.Log("[" + DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss") + "] >>> Token was banned -> old token [" + Configs.accounts + "] -> new token [" + buffer + "]");
+                            Logger.Log("Token was banned -> old token [" + Configs.accounts + "] -> new token [" + buffer + "]");
                             Console.WriteLine("{0} >>> Token was banned -> old token [{1}] -> new token [{2}]", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"), Configs.accounts, buffer);
                             Configs.accounts = buffer;
                             result = 1;
@@ -1282,6 +1322,7 @@ namespace CSGO_Server_Manager
     {
         private static readonly string logFile = Environment.CurrentDirectory + "\\server_log.log";
         private static readonly string errFile = Environment.CurrentDirectory + "\\server_err.log";
+        private static readonly string mapFile = Environment.CurrentDirectory + "\\server_map.log";
 
         public static void Create()
         {
@@ -1302,21 +1343,38 @@ namespace CSGO_Server_Manager
                     fs.Write(bytes, 0, bytes.Length);
                 }
             }
+
+            if (!File.Exists(mapFile))
+            {
+                using (FileStream fs = File.Create(mapFile))
+                {
+                    byte[] bytes = Encoding.UTF8.GetBytes("----------------------------------------\nCSGO Server Manager log File\nDescription: Server map log in chronological order.\nThis file was auto generate by CSM.\n----------------------------------------\nYYYY/MM/DD HH:MM:SS | Event\n----------------------------------------\n");
+                    fs.Write(bytes, 0, bytes.Length);
+                }
+            }
         }
 
         public static void Log(string log)
         {
             using (StreamWriter writer = new StreamWriter(logFile, true))
             {
-                writer.WriteLine(log);
+                writer.WriteLine("[" + DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss") + "] >>> " + log);
             }
         }
 
-        public static void Error(string log)
+        public static void Error(string err)
         {
             using (StreamWriter writer = new StreamWriter(errFile, true))
             {
-                writer.WriteLine(log);
+                writer.WriteLine("[" + DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss") + "] >>> " + err);
+            }
+        }
+
+        public static void Map(string map)
+        {
+            using (StreamWriter writer = new StreamWriter(mapFile, true))
+            {
+                writer.WriteLine("[" + DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss") + "] >>> Changed Map to " + map);
             }
         }
     }
