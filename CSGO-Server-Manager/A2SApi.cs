@@ -87,6 +87,7 @@ namespace CSGO_Server_Manager
                 {
                     using (WebClient web = new WebClient())
                     {
+                        ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
                         Console.WriteLine("{0} >>> A2SFirewall -> Downloading A2Skey ...", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"));
                         a2skey = web.DownloadString("https://api.kxnrl.com/A2SFirewall/?ip=" + Configs.ip);
                         if (a2skey.Length >= 4)

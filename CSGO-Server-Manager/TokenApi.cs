@@ -15,6 +15,8 @@ namespace CSGO_Server_Manager
                 result = 0;
                 using (WebClient http = new WebClient())
                 {
+                    ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
+
                     buffer = http.DownloadString("https://csgotokens.com/token-api.php?ip=" + Configs.ip + ":" + Configs.port + "&key=" + Configs.TokenApi);
 
                     if (consoleLog)

@@ -34,6 +34,7 @@ namespace CSGO_Server_Manager
                 result = null;
                 using (WebClient http = new WebClient())
                 {
+                    ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
                     result = http.DownloadString("https://api.steampowered.com/ISteamApps/UpToDateCheck/v0001/?appid=730&version=" + GetCurrentVersion() + "&format=json");
                     if (!result.Contains("\"success\":true"))
                     {
