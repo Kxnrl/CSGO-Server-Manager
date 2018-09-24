@@ -8,7 +8,7 @@ using System.Net.Sockets;
 using System.Text.RegularExpressions;
 using System.Threading;
 
-namespace CSGO_Server_Manager
+namespace Kxnrl.CSM
 {
     class Helper
     {

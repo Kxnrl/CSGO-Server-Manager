@@ -3,7 +3,7 @@ using System.IO;
 using System.Net;
 using System.Threading;
 
-namespace CSGO_Server_Manager
+namespace Kxnrl.CSM
 {
     class Global
     {

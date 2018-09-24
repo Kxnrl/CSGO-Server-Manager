@@ -4,7 +4,7 @@ using System.Net;
 
 //https://api.steampowered.com/ISteamApps/UpToDateCheck/v0001/?appid=730&version={version}&format=vdf
 
-namespace CSGO_Server_Manager
+namespace Kxnrl.CSM
 {
     class SteamApi
     {

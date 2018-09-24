@@ -2,7 +2,7 @@
 using System.Runtime.InteropServices;
 using System.Text;
 
-namespace CSGO_Server_Manager.Win32Api
+namespace Kxnrl.CSM.Win32Api
 {
     class Window
     {
@@ -24,6 +24,20 @@ namespace CSGO_Server_Manager.Win32Api
         static extern IntPtr GetNextWindow(IntPtr hwnd, [MarshalAs(UnmanagedType.U4)] int wFlag);
         [DllImport("user32.dll")]
         static extern IntPtr GetTopWindow(IntPtr hWnd);
+        [DllImport("user32.dll")]
+        public static extern bool EnumWindows(EnumWindowsProc enumProc, IntPtr lParam);
+        [DllImport("user32.dll")]
+        public static extern bool EnumChildWindows(IntPtr hWndParent, EnumWindowsProc enumProc, IntPtr lParam);
+        [DllImport("user32.dll")]
+        public static extern void GetClassName(IntPtr hwnd, StringBuilder sb, int nMaxCount);
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        public static extern int GetWindowText(IntPtr hWnd, StringBuilder strText, int maxCount);
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        public static extern int GetWindowTextLength(IntPtr hWnd);
+        [DllImport("User32.dll", CharSet = CharSet.Auto)]
+        public static extern int GetWindowThreadProcessId(IntPtr hwnd, out int pid);
+
+        public delegate bool EnumWindowsProc(IntPtr hWnd, int lParam);
 
         public static void Show(int hwnd)
         {

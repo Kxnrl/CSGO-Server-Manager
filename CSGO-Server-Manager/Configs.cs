@@ -3,7 +3,7 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
 
-namespace CSGO_Server_Manager
+namespace Kxnrl.CSM
 {
     class Configs
     {
@@ -93,8 +93,8 @@ namespace CSGO_Server_Manager
 
         public static string TokenApi
         {
-            get { return Get("CSGOtokens.com", "ApiKey", null); }
-            set { Set("CSGOtokens.com", "ApiKey", value); }
+            get { return Get("TokenApi", "ApiKey", null); }
+            set { Set("TokenApi", "ApiKey", value); }
         }
 
         [DllImport("kernel32", CharSet = CharSet.Unicode, SetLastError = true)]
@@ -178,7 +178,7 @@ namespace CSGO_Server_Manager
                 Create("Server", "MapGroup", "custom_maps");
                 Create("Server", "StartMap", "de_dust2");
 
-                Create("CSGOtokens.com", "ApiKey", "null");
+                Create("TokenApi", "ApiKey", "null");
 
                 return false;
             }

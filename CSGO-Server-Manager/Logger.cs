@@ -2,7 +2,7 @@
 using System.IO;
 using System.Text;
 
-namespace CSGO_Server_Manager
+namespace Kxnrl.CSM
 {
     class Logger
     {

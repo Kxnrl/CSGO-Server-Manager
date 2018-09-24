@@ -5,7 +5,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 
-namespace CSGO_Server_Manager
+namespace Kxnrl.CSM
 {
     class A2S
     {

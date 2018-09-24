@@ -21,9 +21,10 @@ using System.Windows.Forms;
 using System.Diagnostics;
 using System.IO;
 using System.Net;
+using System.Text;
 using Microsoft.Win32;
 
-namespace CSGO_Server_Manager
+namespace Kxnrl.CSM
 {
     class Program
     {
@@ -58,7 +59,7 @@ namespace CSGO_Server_Manager
             Win32Api.ConsoleCTRL.ConsoleClosed(new Win32Api.ConsoleCTRL.HandlerRoutine(ApplicationHandler_OnClose));
             Win32Api.PowerMode.NoSleep();
 
-            Console.Title = "CSGO Server Manager v1.2";
+            Console.Title = "CSGO Server Manager v1.3";
 
             Console.WriteLine(@"     )                                        (        *     ");
             Console.WriteLine(@"  ( /(          (                       (     )\ )   (  `    ");
@@ -170,7 +171,7 @@ namespace CSGO_Server_Manager
 
             if (!string.IsNullOrEmpty(Configs.TokenApi))
             {
-                while(TokenApi.CheckTokens(true) <= 0)
+                while (TokenApi.CheckTokens(true) <= 0)
                 {
                     Console.WriteLine("{0} >>> TokenApi -> Checking ...", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"));
                 }
@@ -180,6 +181,44 @@ namespace CSGO_Server_Manager
             else
             {
                 Console.WriteLine("{0} >>> TokenApi -> ApiKey was not found.", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"));
+            }
+
+            // Open editor?
+            if (string.IsNullOrEmpty(Configs.token))
+            {
+                Console.WriteLine("Do you want to edit server config manually? [Y/N]");
+                if (Console.ReadKey().Key == ConsoleKey.Y)
+                {
+                    Process proc = null;
+                    try
+                    {
+                        proc = Process.Start(new ProcessStartInfo() { FileName = "notepad++.exe", Arguments = " \"" + Application.StartupPath + "\\server_config.ini\" ", WindowStyle = ProcessWindowStyle.Minimized });
+                        MessageBox.Show("Please Edit server config in Notepad++!" + Environment.NewLine + "Don't forget to click save button!", "CSGO Server Manager", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+                    }
+                    catch
+                    {
+                        if (File.Exists(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + "\\Kxnrl\\Notepad\\notepad++.exe"))
+                        {
+                            proc = Process.Start(new ProcessStartInfo() { FileName = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + "\\Kxnrl\\Notepad\\notepad++.exe", Arguments = " \"" + Application.StartupPath + "\\server_config.ini\" ", WindowStyle = ProcessWindowStyle.Minimized });
+                            MessageBox.Show("Please Edit server config in Notepad++!" + Environment.NewLine + "Don't forget to click save button!", "CSGO Server Manager", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+                        }
+                        else
+                        {
+                            proc = Process.Start(new ProcessStartInfo() { FileName = "notepad.exe", Arguments = " \"" + Application.StartupPath + "\\server_config.ini\" ", WindowStyle = ProcessWindowStyle.Minimized });
+                            MessageBox.Show("Please Edit server config in Notepad!" + Environment.NewLine + "Don't forget to click save button!", "CSGO Server Manager", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+                        }
+                    }
+                    finally
+                    {
+                        if(proc != null)
+                        {
+                            // reverse
+                            Win32Api.Window.Show((int)proc.MainWindowHandle);
+                        }
+
+                        Environment.Exit(0);
+                    }
+                }
             }
 
             // check a2s key
@@ -478,9 +517,10 @@ namespace CSGO_Server_Manager
             Global.tupdate.Start();
 
             Global.crash = false;
-            uint a2stimeout = 0;
+            uint   a2stimeout = 0;
+            string engeineErr = null;
 
-            while(true)
+            while (true)
             {
                 Thread.Sleep(2000);
 
@@ -493,34 +533,52 @@ namespace CSGO_Server_Manager
                     return;
                 }
 
-                if(!A2S.Query(false))
+                engeineErr = EngineError();
+
+                if (engeineErr != null)
+                {
+                    engeineErr = string.Format("Srcds crashed -> Engine Error: " + engeineErr);
+                    Logger.Log(engeineErr);
+                    goto crashed;
+                }
+                else if (!A2S.Query(false))
                 {
                     a2stimeout++;
                     Console.Title = "CSGO Server Manager - [TimeOut] " + Global.srcds.MainWindowTitle;
                 }
                 else
                 {
-                    a2stimeout = 0;
                     if(Global.srcds.MainWindowTitle.Length > 5)
                     {
                         Console.Title = "CSGO Server Manager - " + Global.srcds.MainWindowTitle;
                         tray.notifyIcon.Text = Global.srcds.MainWindowTitle;
                     }
+
+                    a2stimeout = 0;
                 }
 
-                if(a2stimeout < 10)
-                    continue;
-
-                tray.notifyIcon.BalloonTipTitle = "CSGO Server Manager";
-                tray.notifyIcon.BalloonTipText = "Srcds crashed!";
-                tray.notifyIcon.ShowBalloonTip(5000);
-                Logger.Log("Srcds timeout crashed!");
-                Global.crash = true;
-                Global.tupdate.Abort();
-                Global.tcrash = null;
-                break;
+                if(a2stimeout >= 10)
+                {
+                    Logger.Log("Srcds crashed -> A2STimeout");
+                    engeineErr = "Srcds crashed -> A2STimeout";
+                    goto crashed;
+                }
             }
 
+            // shrot
+            crashed:
+
+            // clr
+            Global.crash = true;
+            Global.tupdate.Abort();
+            Global.tcrash = null;
+
+            // notify icon
+            tray.notifyIcon.BalloonTipTitle = "CSGO Server Manager";
+            tray.notifyIcon.BalloonTipText = engeineErr == null ? "SRCDS crashed!" : engeineErr;
+            tray.notifyIcon.ShowBalloonTip(5000);
+
+            // check?
             if (!Global.srcds.HasExited)
             {
                 Global.srcds.EnableRaisingEvents = false;
@@ -528,6 +586,7 @@ namespace CSGO_Server_Manager
                 Global.srcds.Kill();
             }
 
+            // new tread
             Thread.Sleep(1500);
             Global.tcrash = new Thread(Thread_CheckCrashs);
             Global.tcrash.IsBackground = true;
@@ -615,21 +674,26 @@ namespace CSGO_Server_Manager
 
                 using (Process process = new Process())
                 {
+                    Console.WriteLine(Environment.NewLine);
+
+                    process.EnableRaisingEvents = true;
                     process.StartInfo.FileName = Configs.steam;
                     process.StartInfo.Arguments = "+login anonymous +force_install_dir \"" + Environment.CurrentDirectory + "\" " + "+app_update 740 +exit";
+                    process.StartInfo.UseShellExecute = false;
+                    process.StartInfo.RedirectStandardError = true;
+                    process.StartInfo.RedirectStandardInput = true;
+                    process.StartInfo.RedirectStandardOutput = true;
+
                     process.Start();
+                    process.BeginErrorReadLine();
+                    process.BeginOutputReadLine();
+
+                    process.OutputDataReceived += (sender, e) => { Console.WriteLine(e.Data); };
+                    process.ErrorDataReceived += (sender, e) => { Console.WriteLine(e.Data); };
+
                     process.WaitForExit();
-                    /*StreamReader reader = process.StandardOutput;
-                    string line = reader.ReadLine();
-                    Console.WriteLine(line);
-                    while(!reader.EndOfStream)
-                    {
-                        line = reader.ReadLine();
-                        Console.WriteLine(line);
-                        if(line.ToLower().StartsWith("error!"))
-                            throw new Exception("Update Error: " + line);
-                    }
-                    Console.Write(Environment.NewLine);*/
+
+                    Console.WriteLine(Environment.NewLine);
                 }
 
                 Console.WriteLine("{0} >>> Update successful!", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"));
@@ -693,6 +757,51 @@ namespace CSGO_Server_Manager
                     Global.tcrash.Start();
                 }
             }
+        }
+
+        // Engine Error function.
+        static string EngineError()
+        {
+            string message = null;
+
+            IntPtr handle = Win32Api.Window.FindWindow(null, "Engine Error");
+            if (handle == IntPtr.Zero)
+            {
+                // Not Found
+                return message;
+            }
+
+            int tid_cl = Win32Api.Window.GetWindowThreadProcessId(handle, out int pid);
+            if (Global.srcds.Id != pid)
+            {
+                // Not casuse by current srcds.
+                return message;
+            }
+
+            StringBuilder sb = new StringBuilder(256);
+            Win32Api.Window.EnumChildWindows
+            (
+                handle,
+                (hwnd, lparma) =>
+                {
+                    sb.Clear();
+                    int length = Win32Api.Window.GetWindowTextLength(hwnd);
+                    Win32Api.Window.GetWindowText(hwnd, sb, length + 1);
+
+                    if(sb.ToString().Equals("确定") || sb.ToString().Equals("OK"))
+                    {
+                        //Ignore this.
+                        return true;
+                    }
+
+                    // save
+                    message = sb.ToString();
+                    return false;
+                },
+                IntPtr.Zero
+            );
+
+            return message;
         }
     }
 }

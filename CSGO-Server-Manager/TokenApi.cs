@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Net;
 
-namespace CSGO_Server_Manager
+namespace Kxnrl.CSM
 {
     class TokenApi
     {
