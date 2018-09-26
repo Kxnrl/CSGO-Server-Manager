@@ -97,6 +97,18 @@ namespace Kxnrl.CSM
             set { Set("TokenApi", "ApiKey", value); }
         }
 
+        public static string SteamApi
+        {
+            get { return Get("SteamWorks", "ApiKey", null); }
+            set { Set("SteamWorks", "ApiKey", value); }
+        }
+
+        public static string options
+        {
+            get { return Get("Server", "Options", null); }
+            set { Set("Server", "Options", value); }
+        }
+
         [DllImport("kernel32", CharSet = CharSet.Unicode, SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
         private static extern bool WritePrivateProfileString(string section, string key, string val, string filepath);
@@ -164,11 +176,12 @@ namespace Kxnrl.CSM
                 Create("Global", "srcds", Environment.CurrentDirectory + "\\srcds.exe");
                 Create("Global", "steam", Environment.CurrentDirectory + "\\steamcmd.exe");
 
-                Create("SteamWorks", "Token", "null");
-                Create("SteamWorks", "Group", "null");
+                Create("SteamWorks", "Token",    "null");
+                Create("SteamWorks", "Group",    "null");
+                Create("SteamWorks", "SteamApi", "null");
 
                 Create("Server", "IP", Helper.GetLocalIpAddress());
-                Create("Server", "Port", "null");
+                Create("Server", "Port", "27015");
                 Create("Server", "Insecure", "0");
                 Create("Server", "TickRate", "128");
                 Create("Server", "MaxPlays", "64");
@@ -177,6 +190,7 @@ namespace Kxnrl.CSM
                 Create("Server", "GameMode", "0");
                 Create("Server", "MapGroup", "custom_maps");
                 Create("Server", "StartMap", "de_dust2");
+                Create("Server", "Options", "-sm csgo_server_manager +exec options.cfg");
 
                 Create("TokenApi", "ApiKey", "null");
 

@@ -59,7 +59,7 @@ namespace Kxnrl.CSM
             Win32Api.ConsoleCTRL.ConsoleClosed(new Win32Api.ConsoleCTRL.HandlerRoutine(ApplicationHandler_OnClose));
             Win32Api.PowerMode.NoSleep();
 
-            Console.Title = "CSGO Server Manager v1.3";
+            Console.Title = "CSGO Server Manager v1.3.1";
 
             Console.WriteLine(@"     )                                        (        *     ");
             Console.WriteLine(@"  ( /(          (                       (     )\ )   (  `    ");
@@ -460,9 +460,29 @@ namespace Kxnrl.CSM
         {
             Thread.Sleep(500);
 
+            // Check maps valid
+            if (!string.IsNullOrEmpty(Configs.startmap))
+            {
+                if (!File.Exists(Path.GetDirectoryName(Configs.srcds) + "\\csgo\\maps\\" + Configs.startmap + ".bsp"))
+                {
+                    string[] maps = Directory.GetFiles(Path.GetDirectoryName(Configs.srcds) + "\\csgo\\maps", "*.bsp");
+
+                    if (maps.Length < 1)
+                    {
+                        Logger.Error("There are no valid maps in your maps folder. please add maps!");
+                        Console.WriteLine("Press any key to continue ...");
+                        Console.ReadKey();
+                        Environment.Exit(0);
+                    }
+
+                    Configs.startmap = maps[0];
+                }
+            }
+
             string args = "-console -game csgo" + " "
                         + "-ip " + Configs.ip + " "
                         + "-port " + Configs.port + " "
+                        + ((!string.IsNullOrEmpty(Configs.SteamApi))  ?  string.Format("-authkey {0} ", Configs.SteamApi) : "")
                         + ((!string.IsNullOrEmpty(Configs.insecure)   && int.TryParse(Configs.insecure,   out int novalveac) && novalveac == 1) ? "-insecure " : "")
                         + ((!string.IsNullOrEmpty(Configs.tickrate)   && int.TryParse(Configs.tickrate,   out int TickRate)) ?  string.Format("-tickrate {0} ", TickRate) : "")
                         + ((!string.IsNullOrEmpty(Configs.maxplayers) && int.TryParse(Configs.maxplayers, out int maxPlays)) ?  string.Format("-maxplayers_override {0} ", maxPlays) : "")
@@ -473,7 +493,8 @@ namespace Kxnrl.CSM
                         + ((!string.IsNullOrEmpty(Configs.startmap))  ?  string.Format("+map {0} ", Configs.startmap) : "")
                         + ((!string.IsNullOrEmpty(Configs.token))     ?  string.Format("+sv_setsteamaccount {0} ", Configs.token) : "")
                         + ((!string.IsNullOrEmpty(Configs.groupids))  ?  string.Format("+sv_steamgroup {0} ", Configs.groupids) : "")
-                        + ((!string.IsNullOrEmpty(A2S.a2skey) && A2S.a2skey.Length >= 6) ? string.Format("-a2skey {0} ", A2S.a2skey) : "");
+                        + ((!string.IsNullOrEmpty(A2S.a2skey)         && A2S.a2skey.Length >= 6) ? string.Format("-a2skey {0} ", A2S.a2skey) : "")
+                        + ((!string.IsNullOrEmpty(Configs.options))   ?  Configs.options : "");
 
             try
             {
