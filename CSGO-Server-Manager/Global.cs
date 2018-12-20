@@ -17,5 +17,7 @@ namespace Kxnrl.CSM
         public static Thread tupdate = null;
         public static FileSystemWatcher watcher = null;
         public static IPEndPoint ipep;
+        public static uint currentPlayers = 0;
+        public static uint maximumPlayers = 0;
     }
 }

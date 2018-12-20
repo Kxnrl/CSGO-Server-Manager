@@ -13,7 +13,7 @@ namespace Kxnrl.CSM
 
         private static string GetCurrentVersion()
         {
-            using (StreamReader sr = new StreamReader(Environment.CurrentDirectory + "\\csgo\\steam.inf"))
+            using (StreamReader sr = new StreamReader(Path.Combine(Environment.CurrentDirectory, Configs.game, "steam.inf")))
             {
                 buffer = null;
                 while ((buffer = sr.ReadLine()) != null)

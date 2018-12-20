@@ -36,7 +36,7 @@ namespace Kxnrl.CSM
             public static MenuItem exitButton;
         }
 
-        public static int myHandle = 0;
+        public static IntPtr myHwnd = IntPtr.Zero;
 
         [STAThread]
         static void Main(string[] args)
@@ -49,7 +49,9 @@ namespace Kxnrl.CSM
                 Environment.Exit(-1);
             }
 
-            myHandle = (int)Process.GetCurrentProcess().MainWindowHandle;
+            Process myProc = Process.GetCurrentProcess();
+            myProc.PriorityClass = ProcessPriorityClass.BelowNormal;
+            myHwnd = myProc.MainWindowHandle;
 
             // Event
             Application.ThreadException += new ThreadExceptionEventHandler(ExceptionHandler_CurrentThread);
@@ -59,18 +61,7 @@ namespace Kxnrl.CSM
             Win32Api.ConsoleCTRL.ConsoleClosed(new Win32Api.ConsoleCTRL.HandlerRoutine(ApplicationHandler_OnClose));
             Win32Api.PowerMode.NoSleep();
 
-            Console.Title = "CSGO Server Manager v1.3.1";
-
-            Console.WriteLine(@"     )                                        (        *     ");
-            Console.WriteLine(@"  ( /(          (                       (     )\ )   (  `    ");
-            Console.WriteLine(@"  )\())  (      )\     (                )\   (()/(   )\))(   ");
-            Console.WriteLine(@"|((_)\   )\ )  ((_)   ))\     ___     (((_)   /(_)) ((_)()\  ");
-            Console.WriteLine(@"|_ ((_) (()/(   _    /((_)   |___|    )\___  (_))   (_()((_) ");
-            Console.WriteLine(@"| |/ /   )(_)) | |  (_))             ((/ __| / __|  |  \/  | ");
-            Console.WriteLine(@"  ' <   | || | | |  / -_)             | (__  \__ \  | |\/| | ");
-            Console.WriteLine(@" _|\_\   \_, | |_|  \___|              \___| |___/  |_|  |_| ");
-            Console.WriteLine(@"         |__/                                                ");
-            Console.WriteLine(Environment.NewLine);
+            Console.Title = "CSGO Server Manager v1.4";
 
             if(!Configs.Check())
             {
@@ -192,19 +183,20 @@ namespace Kxnrl.CSM
                     Process proc = null;
                     try
                     {
-                        proc = Process.Start(new ProcessStartInfo() { FileName = "notepad++.exe", Arguments = " \"" + Application.StartupPath + "\\server_config.ini\" ", WindowStyle = ProcessWindowStyle.Minimized });
+                        proc = Process.Start(new ProcessStartInfo() { FileName = "notepad++.exe", Arguments = " \"" + Path.Combine(Application.StartupPath, "server_config.ini") + "\" ", WindowStyle = ProcessWindowStyle.Minimized });
                         MessageBox.Show("Please Edit server config in Notepad++!" + Environment.NewLine + "Don't forget to click save button!", "CSGO Server Manager", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
                     }
                     catch
                     {
-                        if (File.Exists(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + "\\Kxnrl\\Notepad\\notepad++.exe"))
+                        
+                        if (File.Exists(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Kxnrl", "Notepad", "notepad++.exe")))
                         {
-                            proc = Process.Start(new ProcessStartInfo() { FileName = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + "\\Kxnrl\\Notepad\\notepad++.exe", Arguments = " \"" + Application.StartupPath + "\\server_config.ini\" ", WindowStyle = ProcessWindowStyle.Minimized });
+                            proc = Process.Start(new ProcessStartInfo() { FileName = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Kxnrl", "Notepad", "notepad++.exe"), Arguments = " \"" + Path.Combine(Application.StartupPath, "server_config.ini") + "\" ", WindowStyle = ProcessWindowStyle.Minimized });
                             MessageBox.Show("Please Edit server config in Notepad++!" + Environment.NewLine + "Don't forget to click save button!", "CSGO Server Manager", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
                         }
                         else
                         {
-                            proc = Process.Start(new ProcessStartInfo() { FileName = "notepad.exe", Arguments = " \"" + Application.StartupPath + "\\server_config.ini\" ", WindowStyle = ProcessWindowStyle.Minimized });
+                            proc = Process.Start(new ProcessStartInfo() { FileName = "notepad.exe", Arguments = " \"" + Path.Combine(Application.StartupPath, "server_config.ini") + "\" ", WindowStyle = ProcessWindowStyle.Minimized });
                             MessageBox.Show("Please Edit server config in Notepad!" + Environment.NewLine + "Don't forget to click save button!", "CSGO Server Manager", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
                         }
                     }
@@ -213,7 +205,8 @@ namespace Kxnrl.CSM
                         if(proc != null)
                         {
                             // reverse
-                            Win32Api.Window.Show((int)proc.MainWindowHandle);
+                            Win32Api.Window.Show(proc.MainWindowHandle);
+                            Win32Api.Window.Active(proc.MainWindowHandle);
                         }
 
                         Environment.Exit(0);
@@ -261,7 +254,7 @@ namespace Kxnrl.CSM
             tray.notifyIcon.BalloonTipTitle = "CSGO Server Manager";
             tray.notifyIcon.BalloonTipText = "Server Started!";
             tray.notifyIcon.ShowBalloonTip(5000);
-            Win32Api.Window.Hide(myHandle);
+            Win32Api.Window.Hide(myHwnd);
             currentShow = false;
 
             string input;
@@ -284,11 +277,11 @@ namespace Kxnrl.CSM
                 switch(input.ToLower())
                 {
                     case "show":
-                        Win32Api.Window.Show(Global.srcds.MainWindowHandle.ToInt32());
+                        Win32Api.Window.Show(Global.srcds.MainWindowHandle);
                         Console.WriteLine("Show SRCDS window.");
                         break;
                     case "hide":
-                        Win32Api.Window.Hide(Global.srcds.MainWindowHandle.ToInt32());
+                        Win32Api.Window.Hide(Global.srcds.MainWindowHandle);
                         Console.WriteLine("Hide SRCDS window.");
                         break;
                     case "quit":
@@ -377,18 +370,18 @@ namespace Kxnrl.CSM
                 if (currentShow)
                 {
                     currentShow = false;
-                    Win32Api.Window.Hide(myHandle);
+                    Win32Api.Window.Hide(myHwnd);
                     tray.showHide.Text = "Show";
                     tray.notifyIcon.BalloonTipText = "Hide Window, Click icon to recovery window";
                     if(Global.srcds != null && !Global.srcds.HasExited)
                     {
-                        Win32Api.Window.Hide(Global.srcds.MainWindowHandle.ToInt32());
+                        Win32Api.Window.Hide(Global.srcds.MainWindowHandle);
                     }
                 }
                 else
                 {
                     currentShow = true;
-                    Win32Api.Window.Show(myHandle);
+                    Win32Api.Window.Show(myHwnd);
                     tray.showHide.Text = "Hide";
                     tray.notifyIcon.BalloonTipText = "Show Window, Click icon to hide window";
                 }
@@ -460,12 +453,21 @@ namespace Kxnrl.CSM
         {
             Thread.Sleep(500);
 
+            // version validate
+            if (!SteamApi.GetLatestVersion())
+            {
+                Global.update = true;
+                Global.tcrash = null;
+                new Thread(Thread_UpdateCSGO).Start();
+                return;
+            }
+
             // Check maps valid
             if (!string.IsNullOrEmpty(Configs.startmap))
             {
-                if (!File.Exists(Path.GetDirectoryName(Configs.srcds) + "\\csgo\\maps\\" + Configs.startmap + ".bsp"))
+                if (!File.Exists(Path.Combine(Path.GetDirectoryName(Configs.srcds), "csgo", "maps", Configs.startmap + ".bsp")))
                 {
-                    string[] maps = Directory.GetFiles(Path.GetDirectoryName(Configs.srcds) + "\\csgo\\maps", "*.bsp");
+                    string[] maps = Directory.GetFiles(Path.Combine(Path.GetDirectoryName(Configs.srcds), "csgo", "maps"), "*.bsp");
 
                     if (maps.Length < 1)
                     {
@@ -475,13 +477,14 @@ namespace Kxnrl.CSM
                         Environment.Exit(0);
                     }
 
-                    Configs.startmap = maps[0];
+                    Configs.startmap = Path.GetFileNameWithoutExtension(maps[0]);
                 }
             }
 
-            string args = "-console -game csgo" + " "
+            string args = "-console" + " "
                         + "-ip " + Configs.ip + " "
                         + "-port " + Configs.port + " "
+                        + "-game " + Configs.game + " "
                         + ((!string.IsNullOrEmpty(Configs.SteamApi))  ?  string.Format("-authkey {0} ", Configs.SteamApi) : "")
                         + ((!string.IsNullOrEmpty(Configs.insecure)   && int.TryParse(Configs.insecure,   out int novalveac) && novalveac == 1) ? "-insecure " : "")
                         + ((!string.IsNullOrEmpty(Configs.tickrate)   && int.TryParse(Configs.tickrate,   out int TickRate)) ?  string.Format("-tickrate {0} ", TickRate) : "")
@@ -493,7 +496,6 @@ namespace Kxnrl.CSM
                         + ((!string.IsNullOrEmpty(Configs.startmap))  ?  string.Format("+map {0} ", Configs.startmap) : "")
                         + ((!string.IsNullOrEmpty(Configs.token))     ?  string.Format("+sv_setsteamaccount {0} ", Configs.token) : "")
                         + ((!string.IsNullOrEmpty(Configs.groupids))  ?  string.Format("+sv_steamgroup {0} ", Configs.groupids) : "")
-                        + ((!string.IsNullOrEmpty(A2S.a2skey)         && A2S.a2skey.Length >= 6) ? string.Format("-a2skey {0} ", A2S.a2skey) : "")
                         + ((!string.IsNullOrEmpty(Configs.options))   ?  Configs.options : "");
 
             try
@@ -530,7 +532,10 @@ namespace Kxnrl.CSM
             Console.Write(Environment.NewLine);
 
             Thread.Sleep(5000);
-            Win32Api.Window.Hide(Global.srcds.MainWindowHandle.ToInt32());
+            Win32Api.Window.Hide(Global.srcds.MainWindowHandle);
+
+            // Set to High
+            Global.srcds.PriorityClass = ProcessPriorityClass.High;
 
             Global.tupdate = new Thread(Thread_UpdateCheck);
             Global.tupdate.IsBackground = true;
@@ -565,16 +570,13 @@ namespace Kxnrl.CSM
                 else if (!A2S.Query(false))
                 {
                     a2stimeout++;
-                    Console.Title = "CSGO Server Manager - [TimeOut] " + Global.srcds.MainWindowTitle;
+                    Console.Title = "[TimeOut] " + Global.srcds.MainWindowTitle;
                 }
                 else
                 {
-                    if(Global.srcds.MainWindowTitle.Length > 5)
-                    {
-                        Console.Title = "CSGO Server Manager - " + Global.srcds.MainWindowTitle;
-                        tray.notifyIcon.Text = Global.srcds.MainWindowTitle;
-                    }
-
+                    byte[] titles = Encoding.Default.GetBytes(Global.srcds.MainWindowTitle);
+                    Console.Title = "[" + Global.currentPlayers + "/" + Global.maximumPlayers + "]" + "  -  " + Encoding.UTF8.GetString(titles);
+                    tray.notifyIcon.Text = Console.Title;
                     a2stimeout = 0;
                 }
 
@@ -596,7 +598,7 @@ namespace Kxnrl.CSM
 
             // notify icon
             tray.notifyIcon.BalloonTipTitle = "CSGO Server Manager";
-            tray.notifyIcon.BalloonTipText = engeineErr == null ? "SRCDS crashed!" : engeineErr;
+            tray.notifyIcon.BalloonTipText = (engeineErr == null) ? "SRCDS crashed!" : engeineErr;
             tray.notifyIcon.ShowBalloonTip(5000);
 
             // check?
@@ -666,18 +668,21 @@ namespace Kxnrl.CSM
                         Win32Api.Message.Send(Global.srcds.MainWindowHandle);
                         Thread.Sleep(1000);
 
-                        if(Global.crash)
-                            break;
+                        if (Global.crash)
+                            goto done;
                     }
-                    Global.update = true;
-                    Global.tupdate = null;
-                    new Thread(Thread_UpdateCSGO).Start();
-                    return;
+
+                    goto done;
                 }
 
                 Thread.Sleep(300000);
             }
             while(true);
+
+            done:
+            Global.update = true;
+            Global.tupdate = null;
+            new Thread(Thread_UpdateCSGO).Start();
         }
 
         static void Thread_UpdateCSGO()

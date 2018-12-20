@@ -13,7 +13,6 @@ namespace Kxnrl.CSM
         private static readonly byte[] request_a2scsm = new byte[9] { 0xFF, 0xFF, 0xFF, 0xFF, 0x66, 0xFF, 0xFF, 0xFF, 0xFF };
         private static byte[] response = new byte[128];
         private static string results = null;
-        public static string a2skey = null;
 
         public static bool Query(bool start)
         {
@@ -31,22 +30,34 @@ namespace Kxnrl.CSM
                     {
                         serverSock.SendTo(request_a2scsm, Global.ipep);
                         serverSock.Receive(response);
-                        results = Encoding.UTF8.GetString(response).TrimEnd('\t').TrimEnd('\n').TrimEnd('\0').Trim();
+                        results = Encoding.UTF8.GetString(response).Trim();
 
                         if (results.Length <= 5)
                             return false;
 
+                        string[] data = results.Split('|');
+
+                        if (data.Length < 3)
+                        {
+                            Logger.Error("Recv string not match: [" + results + "]");
+                            return false;
+                        }
+
                         if (Global.currentMap == null)
                         {
-                            Global.currentMap = results;
+                            Global.currentMap = data[0];
                             Console.WriteLine("{0} >>> Started srcds with map {1}", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"), Global.currentMap);
                         }
-                        else if (!results.Equals(Global.currentMap))
+                        else if (!data[0].Equals(Global.currentMap))
                         {
-                            Logger.Map(results);
-                            Configs.startmap = results;
-                            Global.currentMap = results;
+                            Logger.Map(data[0]);
+                            Configs.startmap = data[0];
+                            Global.currentMap = data[0];
                         }
+
+                        Global.currentPlayers = Convert.ToUInt32(data[1]);
+                        Global.maximumPlayers = Convert.ToUInt32(data[2]);
+
                         return true;
                     }
                     else
@@ -67,7 +78,7 @@ namespace Kxnrl.CSM
 
         public static void CheckFirewall()
         {
-            if (File.Exists(Environment.CurrentDirectory + "\\csgo\\addons\\sourcemod\\extensions\\A2SFirewall.ext.dll"))
+            if (File.Exists(Path.Combine(Environment.CurrentDirectory, "csgo", "addons", "sourcemod", "extensions", "A2SFirewall.ext.dll")))
             {
                 Global.A2SFireWall = true;
                 CheckAutoLoad();
@@ -78,52 +89,16 @@ namespace Kxnrl.CSM
                 return;
             }
 
-            Console.WriteLine("{0} >>> A2SFirewall -> Checking A2Skey ...", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"));
-
-            int left = 3;
-            while(left >= 0)
-            {
-                try
-                {
-                    using (WebClient web = new WebClient())
-                    {
-                        ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
-                        Console.WriteLine("{0} >>> A2SFirewall -> Downloading A2Skey ...", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"));
-                        a2skey = web.DownloadString("https://api.kxnrl.com/A2SFirewall/?ip=" + Configs.ip);
-                        if (a2skey.Length >= 4)
-                        {
-                            Console.WriteLine("{0} >>> A2SFirewall -> A2Skey has been loaded ...", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"));
-                            break;
-                        }
-                    }
-                }
-                catch (WebException webEx)
-                {
-                    Logger.Error("\n----------------------------------------\nThread: " + Thread.CurrentThread.Name + "\nException: " + webEx.GetType() + "\nMessage: " + webEx.Message + "\nStackTrace:\n" + webEx.StackTrace);
-                }
-                catch (Exception e)
-                {
-                    Logger.Error("\n----------------------------------------\nThread: " + Thread.CurrentThread.Name + "\nException: " + e.GetType() + "\nMessage: " + e.Message + "\nStackTrace:\n" + e.StackTrace);
-                }
-                finally
-                {
-                    
-                    if(string.IsNullOrEmpty(a2skey))
-                    {
-                        left--;
-                        Thread.Sleep(1000);
-                    }
-                }
-            }
+            Console.WriteLine("{0} >>> A2SFirewall -> Initializing ...", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"));
         }
 
         private static void CheckAutoLoad()
         {
-            if (!File.Exists(Environment.CurrentDirectory + "\\csgo\\addons\\sourcemod\\extensions\\A2SFirewall.autoload"))
+            if (!File.Exists(Path.Combine(Environment.CurrentDirectory, "csgo", "addons", "sourcemod", "extensions", "A2SFirewall.autoload")))
             {
                 try
                 {
-                    using (FileStream file = File.Create(Environment.CurrentDirectory + "\\csgo\\addons\\sourcemod\\extensions\\A2SFirewall.autoload"))
+                    using (FileStream file = File.Create(Path.Combine(Environment.CurrentDirectory, "csgo", "addons", "sourcemod", "extensions", "A2SFirewall.autoload")))
                     {
                         response = Encoding.UTF8.GetBytes("This file created by CSGO Server Manager.");
                         file.Write(response, 0, response.Length);

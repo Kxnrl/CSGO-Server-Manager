@@ -16,7 +16,9 @@ namespace Kxnrl.CSM.Win32Api
         [DllImport("user32.dll", EntryPoint = "FindWindow")]
         public static extern IntPtr FindWindowEx(IntPtr hwndParent, IntPtr hwndChildAfter, string lpszClass, string lpszWindow);
         [DllImport("user32.dll", EntryPoint = "ShowWindow", SetLastError = true)]
-        static extern bool ShowWindow(int hwnd, uint nCmdShow);
+        static extern bool ShowWindow(IntPtr hwnd, uint nCmdShow);
+        [DllImport("user32.dll ")]
+        static extern bool SetForegroundWindow(IntPtr hwnd);
         [DllImport("user32.dll")]
         [return: MarshalAs(UnmanagedType.Bool)]
         static extern bool IsWindowVisible(IntPtr hWnd);
@@ -39,13 +41,17 @@ namespace Kxnrl.CSM.Win32Api
 
         public delegate bool EnumWindowsProc(IntPtr hWnd, int lParam);
 
-        public static void Show(int hwnd)
+        public static void Show(IntPtr hwnd)
         {
             ShowWindow(hwnd, SW_SHOW);
         }
-        public static void Hide(int hwnd)
+        public static void Hide(IntPtr hwnd)
         {
             ShowWindow(hwnd, SW_HIDE);
+        }
+        public static void Active(IntPtr hwnd)
+        {
+            SetForegroundWindow(hwnd);
         }
     }
 

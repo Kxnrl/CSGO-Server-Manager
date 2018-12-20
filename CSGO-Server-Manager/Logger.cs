@@ -6,9 +6,9 @@ namespace Kxnrl.CSM
 {
     class Logger
     {
-        private static readonly string logFile = Environment.CurrentDirectory + "\\server_log.log";
-        private static readonly string errFile = Environment.CurrentDirectory + "\\server_err.log";
-        private static readonly string mapFile = Environment.CurrentDirectory + "\\server_map.log";
+        private static readonly string logFile = Path.Combine(Environment.CurrentDirectory, "server_log.log");
+        private static readonly string errFile = Path.Combine(Environment.CurrentDirectory, "server_err.log");
+        private static readonly string mapFile = Path.Combine(Environment.CurrentDirectory, "server_map.log");
 
         public static void Create()
         {
