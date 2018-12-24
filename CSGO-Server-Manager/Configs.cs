@@ -226,7 +226,7 @@ namespace Kxnrl.CSM
                 Create("Server", "GameMode", "0");
                 Create("Server", "MapGroup", "custom_maps");
                 Create("Server", "StartMap", "de_dust2");
-                Create("Server", "Options", "-sm csgo_server_manager +exec options.cfg");
+                Create("Server", "Options", "+exec options.cfg");
 
                 Create("TokenApi", "ApiKey", "null");
 

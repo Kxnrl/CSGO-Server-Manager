@@ -11,7 +11,7 @@ namespace Kxnrl.CSM
     {
         private static readonly byte[] request_a2sping = new byte[9] { 0xFF, 0xFF, 0xFF, 0xFF, 0x69, 0xFF, 0xFF, 0xFF, 0xFF };
         private static readonly byte[] request_a2scsm = new byte[9] { 0xFF, 0xFF, 0xFF, 0xFF, 0x66, 0xFF, 0xFF, 0xFF, 0xFF };
-        private static byte[] response = new byte[128];
+        private static byte[] response = new byte[384];
         private static string results = null;
 
         public static bool Query(bool start)
@@ -29,43 +29,43 @@ namespace Kxnrl.CSM
                     if (Global.A2SFireWall)
                     {
                         serverSock.SendTo(request_a2scsm, Global.ipep);
-                        serverSock.Receive(response);
+                        serverSock.Receive(response, response.Length, SocketFlags.None);
                         results = Encoding.UTF8.GetString(response).Trim();
 
                         if (results.Length <= 5)
                             return false;
 
-                        string[] data = results.Split('|');
+                        string[] data = results.Split('\r');
 
-                        if (data.Length < 3)
+                        if (data.Length != 4)
                         {
                             Logger.Error("Recv string not match: [" + results + "]");
                             return false;
                         }
 
+                        Global.hostname = data[0];
+
                         if (Global.currentMap == null)
                         {
-                            Global.currentMap = data[0];
+                            Global.currentMap = data[1];
                             Console.WriteLine("{0} >>> Started srcds with map {1}", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"), Global.currentMap);
                         }
-                        else if (!data[0].Equals(Global.currentMap))
+                        else if (!data[1].Equals(Global.currentMap))
                         {
-                            Logger.Map(data[0]);
-                            Configs.startmap = data[0];
-                            Global.currentMap = data[0];
+                            Logger.Map(data[1]);
+                            Configs.startmap = data[1];
+                            Global.currentMap = data[1];
                         }
 
-                        Global.currentPlayers = Convert.ToUInt32(data[1]);
-                        Global.maximumPlayers = Convert.ToUInt32(data[2]);
+                        Global.currentPlayers = Convert.ToUInt32(data[2]);
+                        Global.maximumPlayers = Convert.ToUInt32(data[3]);
 
                         return true;
                     }
-                    else
-                    {
-                        serverSock.SendTo(request_a2sping, Global.ipep);
-                        serverSock.Receive(response);
-                        return (response[4] == 0x6A);
-                    }
+
+                    serverSock.SendTo(request_a2sping, Global.ipep);
+                    serverSock.Receive(response);
+                    return (response[4] == 0x6A);
                 }
                 catch (Exception e)
                 {
@@ -78,7 +78,7 @@ namespace Kxnrl.CSM
 
         public static void CheckFirewall()
         {
-            if (File.Exists(Path.Combine(Environment.CurrentDirectory, "csgo", "addons", "sourcemod", "extensions", "A2SFirewall.ext.dll")))
+            if (File.Exists(Path.Combine(Path.GetDirectoryName(Configs.srcds), Configs.game, "addons", "sourcemod", "extensions", "A2SFirewall.ext.dll")))
             {
                 Global.A2SFireWall = true;
                 CheckAutoLoad();
@@ -94,11 +94,11 @@ namespace Kxnrl.CSM
 
         private static void CheckAutoLoad()
         {
-            if (!File.Exists(Path.Combine(Environment.CurrentDirectory, "csgo", "addons", "sourcemod", "extensions", "A2SFirewall.autoload")))
+            if (!File.Exists(Path.Combine(Path.GetDirectoryName(Configs.srcds), Configs.game, "addons", "sourcemod", "extensions", "A2SFirewall.autoload")))
             {
                 try
                 {
-                    using (FileStream file = File.Create(Path.Combine(Environment.CurrentDirectory, "csgo", "addons", "sourcemod", "extensions", "A2SFirewall.autoload")))
+                    using (FileStream file = File.Create(Path.Combine(Path.GetDirectoryName(Configs.srcds), Configs.game, "addons", "sourcemod", "extensions", "A2SFirewall.autoload")))
                     {
                         response = Encoding.UTF8.GetBytes("This file created by CSGO Server Manager.");
                         file.Write(response, 0, response.Length);

@@ -38,6 +38,8 @@ namespace Kxnrl.CSM
 
         public static IntPtr myHwnd = IntPtr.Zero;
 
+        public static readonly string version = "1.4.1";
+
         [STAThread]
         static void Main(string[] args)
         {
@@ -61,7 +63,7 @@ namespace Kxnrl.CSM
             Win32Api.ConsoleCTRL.ConsoleClosed(new Win32Api.ConsoleCTRL.HandlerRoutine(ApplicationHandler_OnClose));
             Win32Api.PowerMode.NoSleep();
 
-            Console.Title = "CSGO Server Manager v1.4";
+            Console.Title = "CSGO Server Manager v" + version;
 
             if(!Configs.Check())
             {
@@ -141,7 +143,7 @@ namespace Kxnrl.CSM
                 {
                     Process exe = Helper.GetAppByPort(port);
                     Console.WriteLine("{0} >>> Trigger SRCDS Quit -> App[{1}] PID[{2}]", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"), exe.MainWindowTitle, exe.Id);
-                    Helper.KillSRCDS(exe);
+                    Helper.ForceQuit(exe);
                 }
                 catch(Exception e)
                 {
@@ -154,7 +156,7 @@ namespace Kxnrl.CSM
             {
                 if (exe.MainModule.FileName.Equals(Configs.srcds))
                 {
-                    exe.Kill();
+                    Helper.ForceQuit(exe);
                     Console.WriteLine("{0} >>> Force close old srcds before new srcds start.", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"));
                 }
             }
@@ -217,6 +219,10 @@ namespace Kxnrl.CSM
             // check a2s key
             A2S.CheckFirewall();
 
+            // current
+            Win32Api.Window.Hide(myHwnd);
+            currentShow = false;
+
             Global.tcrash = new Thread(Thread_CheckCrashs);
             Global.tcrash.IsBackground = true;
             Global.tcrash.Name = "Crash Thread";
@@ -254,8 +260,6 @@ namespace Kxnrl.CSM
             tray.notifyIcon.BalloonTipTitle = "CSGO Server Manager";
             tray.notifyIcon.BalloonTipText = "Server Started!";
             tray.notifyIcon.ShowBalloonTip(5000);
-            Win32Api.Window.Hide(myHwnd);
-            currentShow = false;
 
             string input;
             while (true)
@@ -451,8 +455,6 @@ namespace Kxnrl.CSM
 
         static void Thread_CheckCrashs()
         {
-            Thread.Sleep(500);
-
             // version validate
             if (!SteamApi.GetLatestVersion())
             {
@@ -485,6 +487,7 @@ namespace Kxnrl.CSM
                         + "-ip " + Configs.ip + " "
                         + "-port " + Configs.port + " "
                         + "-game " + Configs.game + " "
+                        + "-csm " + version + " "
                         + ((!string.IsNullOrEmpty(Configs.SteamApi))  ?  string.Format("-authkey {0} ", Configs.SteamApi) : "")
                         + ((!string.IsNullOrEmpty(Configs.insecure)   && int.TryParse(Configs.insecure,   out int novalveac) && novalveac == 1) ? "-insecure " : "")
                         + ((!string.IsNullOrEmpty(Configs.tickrate)   && int.TryParse(Configs.tickrate,   out int TickRate)) ?  string.Format("-tickrate {0} ", TickRate) : "")
@@ -531,8 +534,11 @@ namespace Kxnrl.CSM
             Console.WriteLine("restart - force srcds restart.");
             Console.Write(Environment.NewLine);
 
-            Thread.Sleep(5000);
-            Win32Api.Window.Hide(Global.srcds.MainWindowHandle);
+            Thread.Sleep(6666);
+            if (!currentShow)
+            {
+                Win32Api.Window.Hide(Global.srcds.MainWindowHandle);
+            }
 
             // Set to High
             Global.srcds.PriorityClass = ProcessPriorityClass.High;
@@ -544,7 +550,7 @@ namespace Kxnrl.CSM
 
             Global.crash = false;
             uint   a2stimeout = 0;
-            string engeineErr = null;
+            string srcdsError = null;
 
             while (true)
             {
@@ -559,12 +565,12 @@ namespace Kxnrl.CSM
                     return;
                 }
 
-                engeineErr = EngineError();
+                srcdsError = SrcdsError();
 
-                if (engeineErr != null)
+                if (srcdsError != null)
                 {
-                    engeineErr = string.Format("Srcds crashed -> Engine Error: " + engeineErr);
-                    Logger.Log(engeineErr);
+                    srcdsError = string.Format("Srcds crashed -> Engine Error: " + srcdsError);
+                    Logger.Log(srcdsError);
                     goto crashed;
                 }
                 else if (!A2S.Query(false))
@@ -574,8 +580,15 @@ namespace Kxnrl.CSM
                 }
                 else
                 {
-                    byte[] titles = Encoding.Default.GetBytes(Global.srcds.MainWindowTitle);
-                    Console.Title = "[" + Global.currentPlayers + "/" + Global.maximumPlayers + "]" + "  -  " + Encoding.UTF8.GetString(titles);
+                    if (Global.A2SFireWall)
+                    {
+                        Console.Title = "[" + Global.currentPlayers + "/" + Global.maximumPlayers + "]" + "  -  " + Global.hostname;
+                    }
+                    else
+                    {
+                        byte[] titles = Encoding.Default.GetBytes(Global.srcds.MainWindowTitle);
+                        Console.Title = "[" + Global.currentPlayers + "/" + Global.maximumPlayers + "]" + "  -  " + Encoding.UTF8.GetString(titles);
+                    }
                     tray.notifyIcon.Text = Console.Title;
                     a2stimeout = 0;
                 }
@@ -583,7 +596,7 @@ namespace Kxnrl.CSM
                 if(a2stimeout >= 10)
                 {
                     Logger.Log("Srcds crashed -> A2STimeout");
-                    engeineErr = "Srcds crashed -> A2STimeout";
+                    srcdsError = "Srcds crashed -> A2STimeout";
                     goto crashed;
                 }
             }
@@ -598,7 +611,7 @@ namespace Kxnrl.CSM
 
             // notify icon
             tray.notifyIcon.BalloonTipTitle = "CSGO Server Manager";
-            tray.notifyIcon.BalloonTipText = (engeineErr == null) ? "SRCDS crashed!" : engeineErr;
+            tray.notifyIcon.BalloonTipText = (srcdsError == null) ? "SRCDS crashed!" : srcdsError;
             tray.notifyIcon.ShowBalloonTip(5000);
 
             // check?
@@ -785,49 +798,23 @@ namespace Kxnrl.CSM
             }
         }
 
-        // Engine Error function.
-        static string EngineError()
+        static string SrcdsError()
         {
-            string message = null;
+            string ret = null;
 
-            IntPtr handle = Win32Api.Window.FindWindow(null, "Engine Error");
-            if (handle == IntPtr.Zero)
+            ret = Helper.FindError("Engine Error");
+            if (ret != null)
             {
-                // Not Found
-                return message;
+                return ret;
             }
 
-            int tid_cl = Win32Api.Window.GetWindowThreadProcessId(handle, out int pid);
-            if (Global.srcds.Id != pid)
+            ret = Helper.FindError("Host_Error");
+            if (ret != null)
             {
-                // Not casuse by current srcds.
-                return message;
+                return ret;
             }
 
-            StringBuilder sb = new StringBuilder(256);
-            Win32Api.Window.EnumChildWindows
-            (
-                handle,
-                (hwnd, lparma) =>
-                {
-                    sb.Clear();
-                    int length = Win32Api.Window.GetWindowTextLength(hwnd);
-                    Win32Api.Window.GetWindowText(hwnd, sb, length + 1);
-
-                    if(sb.ToString().Equals("确定") || sb.ToString().Equals("OK"))
-                    {
-                        //Ignore this.
-                        return true;
-                    }
-
-                    // save
-                    message = sb.ToString();
-                    return false;
-                },
-                IntPtr.Zero
-            );
-
-            return message;
+            return ret;
         }
     }
 }

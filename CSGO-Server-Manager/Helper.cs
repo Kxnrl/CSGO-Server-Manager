@@ -5,6 +5,7 @@ using System.Linq;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 
@@ -124,6 +125,30 @@ namespace Kxnrl.CSM
             Thread.Sleep(500);
         }
 
+        public static void ForceQuit(Process exe)
+        {
+            Win32Api.Message.Write(exe.MainWindowHandle, "quit");
+            Win32Api.Message.Send(exe.MainWindowHandle);
+
+            Thread.Sleep(1500);
+
+            uint sec = 0;
+            while (!exe.HasExited)
+            {
+                Thread.Sleep(1000);
+                if (++sec >= 5)
+                {
+                    Console.WriteLine("{0} >>> Timeout -> Force Kill SRCDS! pid[{1}]", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"), exe.Id);
+                    exe.Kill();
+                    break;
+                }
+                exe.Refresh();
+            }
+
+            exe.Close();
+            exe.Dispose();
+        }
+
         public static void KillSRCDS(Process srcds)
         {
             Win32Api.Message.Write(srcds.MainWindowHandle, "quit");
@@ -173,6 +198,50 @@ namespace Kxnrl.CSM
             Console.WriteLine("{0} >>> Detected: Configs file 'server_config.ini' was {1}.", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"), e.ChangeType.ToString().ToLower());
             Console.WriteLine("If you want to edit 'server_config.ini', please quit the application first.", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"));
             Configs.Restore();
+        }
+
+        public static string FindError(string name)
+        {
+            string message = null;
+
+            IntPtr handle = Win32Api.Window.FindWindow(null, name);
+            if (handle == IntPtr.Zero)
+            {
+                // Not Found
+                return message;
+            }
+
+            int tid_cl = Win32Api.Window.GetWindowThreadProcessId(handle, out int pid);
+            if (Global.srcds.Id != pid)
+            {
+                // Not casuse by current srcds.
+                return message;
+            }
+
+            StringBuilder sb = new StringBuilder(256);
+            Win32Api.Window.EnumChildWindows
+            (
+                handle,
+                (hwnd, lparma) =>
+                {
+                    sb.Clear();
+                    int length = Win32Api.Window.GetWindowTextLength(hwnd);
+                    Win32Api.Window.GetWindowText(hwnd, sb, length + 1);
+
+                    if (sb.ToString().Equals("确定") || sb.ToString().Equals("OK"))
+                    {
+                        //Ignore this.
+                        return true;
+                    }
+
+                    // save
+                    message = sb.ToString();
+                    return false;
+                },
+                IntPtr.Zero
+            );
+
+            return message;
         }
     }
 }

@@ -19,5 +19,6 @@ namespace Kxnrl.CSM
         public static IPEndPoint ipep;
         public static uint currentPlayers = 0;
         public static uint maximumPlayers = 0;
+        public static string hostname = "SOURCE DEDICATE SERVER";
     }
 }
