@@ -78,7 +78,7 @@ namespace Kxnrl.CSM
 
         public static void CheckFirewall()
         {
-            if (File.Exists(Path.Combine(Path.GetDirectoryName(Configs.srcds), Configs.game, "addons", "sourcemod", "extensions", "A2SFirewall.ext.dll")))
+            if (File.Exists(Path.Combine(Path.GetDirectoryName(Configs.srcds), Configs.game, "addons", "sourcemod", "extensions", "A2SFirewall.ext.2." + Configs.game + ".dll")))
             {
                 Global.A2SFireWall = true;
                 CheckAutoLoad();
