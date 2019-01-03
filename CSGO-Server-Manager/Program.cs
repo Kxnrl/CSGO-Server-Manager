@@ -38,7 +38,7 @@ namespace Kxnrl.CSM
 
         public static IntPtr myHwnd = IntPtr.Zero;
 
-        public static readonly string version = "1.4.1";
+        public static readonly string version = "1.4.2";
 
         [STAThread]
         static void Main(string[] args)
@@ -65,7 +65,8 @@ namespace Kxnrl.CSM
 
             Console.Title = "CSGO Server Manager v" + version;
 
-            if(!Configs.Check())
+            bool conf = Configs.Check();
+            if (!conf)
             {
                 Console.WriteLine("{0} >>> Configs was initialized -> You can modify it manually!", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"));
             }
@@ -177,7 +178,7 @@ namespace Kxnrl.CSM
             }
 
             // Open editor?
-            if (string.IsNullOrEmpty(Configs.token))
+            if (string.IsNullOrEmpty(Configs.token) && !conf)
             {
                 Console.WriteLine("Do you want to edit server config manually? [Y/N]");
                 if (Console.ReadKey().Key == ConsoleKey.Y)
@@ -220,8 +221,8 @@ namespace Kxnrl.CSM
             A2S.CheckFirewall();
 
             // current
-            Win32Api.Window.Hide(myHwnd);
-            currentShow = false;
+            //Win32Api.Window.Hide(myHwnd);
+            //currentShow = false;
 
             Global.tcrash = new Thread(Thread_CheckCrashs);
             Global.tcrash.IsBackground = true;
@@ -467,19 +468,40 @@ namespace Kxnrl.CSM
             // Check maps valid
             if (!string.IsNullOrEmpty(Configs.startmap))
             {
-                if (!File.Exists(Path.Combine(Path.GetDirectoryName(Configs.srcds), "csgo", "maps", Configs.startmap + ".bsp")))
+                if (!Configs.game.Equals("insurgency"))
                 {
-                    string[] maps = Directory.GetFiles(Path.Combine(Path.GetDirectoryName(Configs.srcds), "csgo", "maps"), "*.bsp");
-
-                    if (maps.Length < 1)
+                    if (!File.Exists(Path.Combine(Path.GetDirectoryName(Configs.srcds), Configs.game, "maps", Configs.startmap + ".bsp")))
                     {
-                        Logger.Error("There are no valid maps in your maps folder. please add maps!");
-                        Console.WriteLine("Press any key to continue ...");
-                        Console.ReadKey();
-                        Environment.Exit(0);
-                    }
+                        string[] maps = Directory.GetFiles(Path.Combine(Path.GetDirectoryName(Configs.srcds), Configs.game, "maps"), "*.bsp");
 
-                    Configs.startmap = Path.GetFileNameWithoutExtension(maps[0]);
+                        if (maps.Length < 1)
+                        {
+                            Logger.Error("There are no valid maps in your maps folder. please add maps!");
+                            Console.WriteLine("Press any key to continue ...");
+                            Console.ReadKey();
+                            Environment.Exit(0);
+                        }
+
+                        Configs.startmap = Path.GetFileNameWithoutExtension(maps[0]);
+                    }
+                }
+                else
+                {
+                    string[] sp = Configs.startmap.Split(' ');
+                    if (!File.Exists(Path.Combine(Path.GetDirectoryName(Configs.srcds), Configs.game, "maps", sp[0] + ".bsp")))
+                    {
+                        string[] maps = Directory.GetFiles(Path.Combine(Path.GetDirectoryName(Configs.srcds), Configs.game, "maps"), "*.bsp");
+
+                        if (maps.Length < 1)
+                        {
+                            Logger.Error("There are no valid maps in your maps folder. please add maps!");
+                            Console.WriteLine("Press any key to continue ...");
+                            Console.ReadKey();
+                            Environment.Exit(0);
+                        }
+
+                        Configs.startmap = Path.GetFileNameWithoutExtension(maps[0]);
+                    }
                 }
             }
 
@@ -717,7 +739,7 @@ namespace Kxnrl.CSM
 
                     process.EnableRaisingEvents = true;
                     process.StartInfo.FileName = Configs.steam;
-                    process.StartInfo.Arguments = "+login anonymous +force_install_dir \"" + Environment.CurrentDirectory + "\" " + "+app_update 740 +exit";
+                    process.StartInfo.Arguments = "+login anonymous +force_install_dir \"" + AppDomain.CurrentDomain.BaseDirectory + "\" " + "+app_update 740 +exit";
                     process.StartInfo.UseShellExecute = false;
                     process.StartInfo.RedirectStandardError = true;
                     process.StartInfo.RedirectStandardInput = true;

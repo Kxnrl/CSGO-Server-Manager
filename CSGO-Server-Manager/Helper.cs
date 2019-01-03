@@ -177,7 +177,7 @@ namespace Kxnrl.CSM
 
         public static void WatchFile()
         {
-            Global.watcher = new FileSystemWatcher(Environment.CurrentDirectory, "server_config.ini");
+            Global.watcher = new FileSystemWatcher(AppDomain.CurrentDomain.BaseDirectory, "server_config.ini");
             Global.watcher.NotifyFilter = NotifyFilters.LastAccess | NotifyFilters.LastWrite | NotifyFilters.FileName;
             Global.watcher.Changed += new FileSystemEventHandler(ConfigFile_OnChanged);
             Global.watcher.Created += new FileSystemEventHandler(ConfigFile_OnChanged);

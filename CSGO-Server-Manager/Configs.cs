@@ -139,7 +139,7 @@ namespace Kxnrl.CSM
         private static StringBuilder stringBuilder = new StringBuilder(1024);
         public static string Get(string section, string key, string defaultValue)
         {
-            GetPrivateProfileString(section, key, defaultValue, stringBuilder, 1024, Path.Combine(Environment.CurrentDirectory, "server_config.ini"));
+            GetPrivateProfileString(section, key, defaultValue, stringBuilder, 1024, Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "server_config.ini"));
             if (stringBuilder.ToString().Equals("null"))
                 return null;
             return stringBuilder.ToString();
@@ -147,13 +147,13 @@ namespace Kxnrl.CSM
 
         private static bool Create(string section, string key, string val)
         {
-            return WritePrivateProfileString(section, key, val, Path.Combine(Environment.CurrentDirectory, "server_config.ini"));
+            return WritePrivateProfileString(section, key, val, Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "server_config.ini"));
         }
 
         private static void Set(string section, string key, string val)
         {
             Global.watcher.EnableRaisingEvents = false;
-            if (WritePrivateProfileString(section, key, val, Path.Combine(Environment.CurrentDirectory, "server_config.ini")))
+            if (WritePrivateProfileString(section, key, val, Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "server_config.ini")))
             {
                 Global.backup = null;
                 Backup();
@@ -164,7 +164,7 @@ namespace Kxnrl.CSM
         private static string backup = string.Empty;
         private static void Backup()
         {
-            using (StreamReader file = new StreamReader(Path.Combine(Environment.CurrentDirectory, "server_config.ini")))
+            using (StreamReader file = new StreamReader(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "server_config.ini")))
             {
                 backup = file.ReadToEnd();
                 if (backup.Length <= 128)
@@ -181,35 +181,40 @@ namespace Kxnrl.CSM
                 return;
 
             Global.watcher.EnableRaisingEvents = false;
-            using (StreamWriter file = new StreamWriter(Path.Combine(Environment.CurrentDirectory, "server_config_backup.ini"), false, Encoding.Unicode))
+            using (StreamWriter file = new StreamWriter(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "server_config_backup.ini"), false, Encoding.Unicode))
             {
                 file.Write(Global.backup);
             }
-            File.Copy(Path.Combine(Environment.CurrentDirectory, "server_config_backup.ini"), Path.Combine(Environment.CurrentDirectory, "server_config.ini"), true);
+            File.Copy(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "server_config_backup.ini"), Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "server_config.ini"), true);
             Global.watcher.EnableRaisingEvents = true;
         }
 
         public static bool Check()
         {
-            if (!File.Exists(Path.Combine(Environment.CurrentDirectory, "server_config.ini")))
+            if (!File.Exists(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "server_config.ini")))
             {
-                Create("Global", "srcds", Path.Combine(Environment.CurrentDirectory + "srcds.exe"));
-                Create("Global", "steam", Path.Combine(Environment.CurrentDirectory + "steamcmd.exe"));
+                Create("Global", "srcds", Path.Combine(AppDomain.CurrentDomain.BaseDirectory + "srcds.exe"));
+                Create("Global", "steam", Path.Combine(AppDomain.CurrentDomain.BaseDirectory + "steamcmd.exe"));
 
-                if (Directory.Exists(Path.Combine(Environment.CurrentDirectory + "csgo")))
+                if (Directory.Exists(Path.Combine(AppDomain.CurrentDomain.BaseDirectory + "csgo")))
                 {
                     // csgo::740
                     Create("Global", "game", "csgo");
                 }
-                else if (Directory.Exists(Path.Combine(Environment.CurrentDirectory + "left4dead2")))
+                else if (Directory.Exists(Path.Combine(AppDomain.CurrentDomain.BaseDirectory + "left4dead2")))
                 {
                     // l4d2::222860
                     Create("Global", "game", "left4dead2");
                 }
-                else if (Directory.Exists(Path.Combine(Environment.CurrentDirectory + "insurgency")))
+                else if (Directory.Exists(Path.Combine(AppDomain.CurrentDomain.BaseDirectory + "insurgency")))
                 {
                     // insurgency::237410
                     Create("Global", "game", "insurgency");
+                }
+                else
+                {
+                    // default
+                    Create("Global", "game", "csgo");
                 }
 
                 Create("SteamWorks", "Token",    "null");

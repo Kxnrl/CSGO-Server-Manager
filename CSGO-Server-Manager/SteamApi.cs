@@ -27,6 +27,22 @@ namespace Kxnrl.CSM
             return "0.0.0.0";
         }
 
+        private static string GetCurrentAppId()
+        {
+            using (StreamReader sr = new StreamReader(Path.Combine(Path.GetDirectoryName(Configs.srcds), Configs.game, "steam.inf")))
+            {
+                buffer = null;
+                while ((buffer = sr.ReadLine()) != null)
+                {
+                    if (!buffer.StartsWith("appID"))
+                        continue;
+
+                    return buffer.Replace("appID=", "");
+                }
+            }
+            return "0";
+        }
+
         public static bool GetLatestVersion()
         {
             try
@@ -35,7 +51,7 @@ namespace Kxnrl.CSM
                 using (WebClient http = new WebClient())
                 {
                     ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
-                    result = http.DownloadString("https://api.steampowered.com/ISteamApps/UpToDateCheck/v0001/?appid=730&version=" + GetCurrentVersion() + "&format=json");
+                    result = http.DownloadString("https://api.steampowered.com/ISteamApps/UpToDateCheck/v0001/?appid=" + GetCurrentAppId() + "&version=" + GetCurrentVersion() + "&format=json");
                     if (!result.Contains("\"success\":true"))
                     {
                         Console.WriteLine("{0} >>> Failed to check SteamApi: {1}", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"), result);
