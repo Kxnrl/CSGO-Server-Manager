@@ -22,7 +22,7 @@ namespace Kxnrl.CSM
             using (Socket serverSock = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp))
             {
                 serverSock.SendTimeout = 100;
-                serverSock.ReceiveTimeout = 100;
+                serverSock.ReceiveTimeout = 1000; // A2S Attack
 
                 try
                 {
@@ -53,8 +53,8 @@ namespace Kxnrl.CSM
                         else if (!data[1].Equals(Global.currentMap))
                         {
                             Logger.Map(data[1]);
-                            Configs.startmap = data[1];
                             Global.currentMap = data[1];
+                            Configs.startmap = data[1];
                         }
 
                         Global.currentPlayers = Convert.ToUInt32(data[2]);

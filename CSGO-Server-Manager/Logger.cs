@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Collections.Specialized;
 using System.IO;
+using System.Net;
 using System.Text;
 
 namespace Kxnrl.CSM
@@ -64,6 +66,48 @@ namespace Kxnrl.CSM
             {
                 writer.WriteLine("[" + DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss") + "] >>> Changed Map to " + map);
                 Console.WriteLine("{0} >>> Changed Map to {1}", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"), map);
+            }
+        }
+
+        public static void Push(string text, string message)
+        {
+            string desp = "### " + Global.hostname + "  " + Environment.NewLine
+                + "人数:" + Global.currentPlayers.ToString() + "/" + Global.maximumPlayers.ToString() + "  " + Environment.NewLine
+                + "地图:" + Global.currentMap + "  " + Environment.NewLine
+                + "原因:" + message;
+
+            NameValueCollection form = new NameValueCollection();
+            form.Add("text", text);
+            form.Add("desp", desp);
+
+            POST("https://sc.ftqq.com/" + Configs.SCKEY + ".send", form);
+        }
+
+        private static void POST(string url, NameValueCollection form)
+        {
+            try
+            {
+                using (WebClient client = new WebClient())
+                {
+                    client.Headers.Add("Content-Type", "application/x-www-form-urlencoded");
+                    client.UploadValues(url, "POST", form);
+                }
+            }
+            catch (Exception e)
+            {
+                Error("Failed to push log: " + e.Message);
+            }
+        }
+
+        public static void Check()
+        {
+            if (Configs.SCKEY != null)
+            {
+                Console.WriteLine("{0} >>> ServerChan -> Message pushing is available.", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"));
+            }
+            else
+            {
+                Console.WriteLine("{0} >>> ServerChan -> SCKEY was not found. -> to create https://sc.ftqq.com", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"));
             }
         }
     }

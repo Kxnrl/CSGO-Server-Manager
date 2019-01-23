@@ -38,7 +38,7 @@ namespace Kxnrl.CSM
 
         public static IntPtr myHwnd = IntPtr.Zero;
 
-        public static readonly string version = "1.4.2";
+        public static readonly string version = "1.4.3";
 
         [STAThread]
         static void Main(string[] args)
@@ -74,14 +74,14 @@ namespace Kxnrl.CSM
             Logger.Create();
             Helper.WatchFile();
 
-            while(!File.Exists(Configs.srcds))
+            while (!File.Exists(Configs.srcds))
             {
                 using (OpenFileDialog fileBrowser = new OpenFileDialog())
                 {
                     fileBrowser.Multiselect = false;
                     fileBrowser.Filter = "CSGO Dedicated Server (srcds.exe)|srcds.exe";
 
-                    if(fileBrowser.ShowDialog() != DialogResult.OK)
+                    if (fileBrowser.ShowDialog() != DialogResult.OK)
                     {
                         MessageBox.Show("Application Exit!\nYou can modify it manually!", "CSGO Server Manager");
                         Environment.Exit(0);
@@ -94,7 +94,7 @@ namespace Kxnrl.CSM
                 }
             }
 
-            while(!File.Exists(Configs.steam))
+            while (!File.Exists(Configs.steam))
             {
                 using (OpenFileDialog fileBrowser = new OpenFileDialog())
                 {
@@ -114,29 +114,29 @@ namespace Kxnrl.CSM
                 }
             }
 
-            if(string.IsNullOrEmpty(Configs.ip) || !IPAddress.TryParse(Configs.ip, out IPAddress ipadr))
+            if (string.IsNullOrEmpty(Configs.ip) || !IPAddress.TryParse(Configs.ip, out IPAddress ipadr))
             {
                 do
                 {
                     Console.WriteLine("Please input your Game Server IP ...");
                     Configs.ip = Console.ReadLine();
                 }
-                while(!IPAddress.TryParse(Configs.ip, out ipadr));
+                while (!IPAddress.TryParse(Configs.ip, out ipadr));
             }
 
-            if(string.IsNullOrEmpty(Configs.port) || !int.TryParse(Configs.port, out int port))
+            if (string.IsNullOrEmpty(Configs.port) || !int.TryParse(Configs.port, out int port))
             {
                 do
                 {
                     Console.WriteLine("Please input your Game Server Port (1 - 65535) ...");
                     Configs.port = Console.ReadLine();
                 }
-                while(!int.TryParse(Configs.port, out port));
+                while (!int.TryParse(Configs.port, out port));
             }
 
             Global.ipep = new IPEndPoint(ipadr, port);
 
-            if(!Helper.PortAvailable(port))
+            if (!Helper.PortAvailable(port))
             {
                 Console.WriteLine("{0} >>> Port[{1}] is unavailable! Finding Application...", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"), port);
 
@@ -146,7 +146,7 @@ namespace Kxnrl.CSM
                     Console.WriteLine("{0} >>> Trigger SRCDS Quit -> App[{1}] PID[{2}]", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"), exe.MainWindowTitle, exe.Id);
                     Helper.ForceQuit(exe);
                 }
-                catch(Exception e)
+                catch (Exception e)
                 {
                     Console.WriteLine("{0} >>> Not found Application: {1}", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"), e.Message);
                 }
@@ -191,7 +191,7 @@ namespace Kxnrl.CSM
                     }
                     catch
                     {
-                        
+
                         if (File.Exists(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Kxnrl", "Notepad", "notepad++.exe")))
                         {
                             proc = Process.Start(new ProcessStartInfo() { FileName = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Kxnrl", "Notepad", "notepad++.exe"), Arguments = " \"" + Path.Combine(Application.StartupPath, "server_config.ini") + "\" ", WindowStyle = ProcessWindowStyle.Minimized });
@@ -205,7 +205,7 @@ namespace Kxnrl.CSM
                     }
                     finally
                     {
-                        if(proc != null)
+                        if (proc != null)
                         {
                             // reverse
                             Win32Api.Window.Show(proc.MainWindowHandle);
@@ -220,16 +220,18 @@ namespace Kxnrl.CSM
             // check a2s key
             A2S.CheckFirewall();
 
+
+            // check server chan
+            Logger.Check();
+
             // current
-            //Win32Api.Window.Hide(myHwnd);
-            //currentShow = false;
+            Win32Api.Window.Hide(myHwnd);
+            currentShow = false;
 
             Global.tcrash = new Thread(Thread_CheckCrashs);
             Global.tcrash.IsBackground = true;
             Global.tcrash.Name = "Crash Thread";
             Global.tcrash.Start();
-
-            Thread.Sleep(8000);
 
             new Thread(
                 delegate ()
@@ -256,7 +258,7 @@ namespace Kxnrl.CSM
                 }
             ).Start();
 
-            Thread.Sleep(1000);
+            Thread.Sleep(5000);
 
             tray.notifyIcon.BalloonTipTitle = "CSGO Server Manager";
             tray.notifyIcon.BalloonTipText = "Server Started!";
@@ -267,19 +269,19 @@ namespace Kxnrl.CSM
             {
                 input = Console.ReadLine();
 
-                if(Global.update)
+                if (Global.update)
                 {
                     Console.WriteLine("Updating ...");
                     continue;
                 }
 
-                if(Global.crash)
+                if (Global.crash)
                 {
                     Console.WriteLine("Restarting ...");
                     continue;
                 }
 
-                switch(input.ToLower())
+                switch (input.ToLower())
                 {
                     case "show":
                         Win32Api.Window.Show(Global.srcds.MainWindowHandle);
@@ -296,14 +298,14 @@ namespace Kxnrl.CSM
                         Environment.Exit(0);
                         break;
                     case "update":
-                        for(int cd = 60; cd > 0; cd--)
+                        for (int cd = 60; cd > 0; cd--)
                         {
                             Console.WriteLine("Server restart in " + cd + " seconds");
                             Win32Api.Message.Write(Global.srcds.MainWindowHandle, "say Server restart in " + cd + " seconds");
                             Win32Api.Message.Send(Global.srcds.MainWindowHandle);
                             Thread.Sleep(1000);
 
-                            if(Global.crash)
+                            if (Global.crash)
                                 break;
                         }
                         Logger.Log("Trigger server update.");
@@ -327,10 +329,10 @@ namespace Kxnrl.CSM
                         Global.tcrash.Start();
                         break;
                     default:
-                        if(input.StartsWith("exec "))
+                        if (input.StartsWith("exec "))
                         {
                             input = input.Replace("exec ", "");
-                            if(input.Length > 1)
+                            if (input.Length > 1)
                             {
                                 Win32Api.Message.Write(Global.srcds.MainWindowHandle, input);
                                 Win32Api.Message.Send(Global.srcds.MainWindowHandle);
@@ -361,14 +363,14 @@ namespace Kxnrl.CSM
         private static void ApplicationHandler_TrayIcon(object sender, EventArgs e)
         {
             MenuItem item = (MenuItem)sender;
-            if(item == tray.exitButton)
+            if (item == tray.exitButton)
             {
                 tray.notifyIcon.Visible = false;
                 tray.notifyIcon.Dispose();
                 Thread.Sleep(50);
                 Environment.Exit(0);
             }
-            else if(item == tray.showHide)
+            else if (item == tray.showHide)
             {
                 tray.notifyIcon.BalloonTipTitle = "CSGO Server Manager";
 
@@ -378,7 +380,7 @@ namespace Kxnrl.CSM
                     Win32Api.Window.Hide(myHwnd);
                     tray.showHide.Text = "Show";
                     tray.notifyIcon.BalloonTipText = "Hide Window, Click icon to recovery window";
-                    if(Global.srcds != null && !Global.srcds.HasExited)
+                    if (Global.srcds != null && !Global.srcds.HasExited)
                     {
                         Win32Api.Window.Hide(Global.srcds.MainWindowHandle);
                     }
@@ -422,6 +424,7 @@ namespace Kxnrl.CSM
 
                 Helper.KillSRCDS(false);
                 Logger.Log("Exit by closing window.");
+                Logger.Push("Server unexpectedly crashed", "Exited by closing window.");
             }
 
             return true;
@@ -429,23 +432,24 @@ namespace Kxnrl.CSM
 
         static void ApplicationHandler_OnExit(object sender, EventArgs e)
         {
-            if(Global.tcrash != null)
+            if (Global.tcrash != null)
             {
                 Global.tcrash.Abort();
             }
-            if(Global.tupdate != null)
+            if (Global.tupdate != null)
             {
                 Global.tupdate.Abort();
             }
- 
+
             Helper.KillSRCDS(false);
             Logger.Log("Exit by others.");
+            Logger.Push("Server unexpectedly crashed", "Exit by others.");
         }
 
         static void ExceptionHandler_AppDomain(object sender, UnhandledExceptionEventArgs args)
         {
             Exception e = args.ExceptionObject as Exception;
-            Logger.Error("\n----------------------------------------\nThread: "+ Thread.CurrentThread.Name +"\nException: " + e.GetType() + "\nMessage: " + e.Message + "\nStackTrace:\n" + e.StackTrace);
+            Logger.Error("\n----------------------------------------\nThread: " + Thread.CurrentThread.Name + "\nException: " + e.GetType() + "\nMessage: " + e.Message + "\nStackTrace:\n" + e.StackTrace);
         }
 
         static void ExceptionHandler_CurrentThread(object sender, ThreadExceptionEventArgs args)
@@ -488,6 +492,7 @@ namespace Kxnrl.CSM
                 else
                 {
                     string[] sp = Configs.startmap.Split(' ');
+
                     if (!File.Exists(Path.Combine(Path.GetDirectoryName(Configs.srcds), Configs.game, "maps", sp[0] + ".bsp")))
                     {
                         string[] maps = Directory.GetFiles(Path.Combine(Path.GetDirectoryName(Configs.srcds), Configs.game, "maps"), "*.bsp");
@@ -500,7 +505,12 @@ namespace Kxnrl.CSM
                             Environment.Exit(0);
                         }
 
-                        Configs.startmap = Path.GetFileNameWithoutExtension(maps[0]);
+                        Logger.Log("Not Found startup map: " + Configs.startmap);
+                        Configs.startmap = Path.GetFileNameWithoutExtension(maps[0]) + " " + (sp.Length > 1 ? sp[1] : "push");
+                    }
+                    else if (sp.Length < 2)
+                    {
+                        Configs.startmap += " " + (Configs.startmap.Contains("_coop") ? "checkpoint" : "push");
                     }
                 }
             }
@@ -508,20 +518,22 @@ namespace Kxnrl.CSM
             string args = "-console" + " "
                         + "-ip " + Configs.ip + " "
                         + "-port " + Configs.port + " "
-                        + "-game " + Configs.game + " "
+                        + "+ip " + Configs.ip + " "
+                        //+ "-game " + Configs.game + " "
                         + "-csm " + version + " "
-                        + ((!string.IsNullOrEmpty(Configs.SteamApi))  ?  string.Format("-authkey {0} ", Configs.SteamApi) : "")
-                        + ((!string.IsNullOrEmpty(Configs.insecure)   && int.TryParse(Configs.insecure,   out int novalveac) && novalveac == 1) ? "-insecure " : "")
-                        + ((!string.IsNullOrEmpty(Configs.tickrate)   && int.TryParse(Configs.tickrate,   out int TickRate)) ?  string.Format("-tickrate {0} ", TickRate) : "")
-                        + ((!string.IsNullOrEmpty(Configs.maxplayers) && int.TryParse(Configs.maxplayers, out int maxPlays)) ?  string.Format("-maxplayers_override {0} ", maxPlays) : "")
-                        + ((!string.IsNullOrEmpty(Configs.nobots)     && int.TryParse(Configs.nobots,     out int nobots)    && nobots == 1) ? "-nobots " : "")
-                        + ((!string.IsNullOrEmpty(Configs.gametype)   && int.TryParse(Configs.gametype,   out int gameType)) ?  string.Format("+gametype {0} ", gameType) : "")
-                        + ((!string.IsNullOrEmpty(Configs.gamemode)   && int.TryParse(Configs.gamemode,   out int gameMode)) ?  string.Format("+gamemode {0} ", gameMode) : "")
-                        + ((!string.IsNullOrEmpty(Configs.mapgroup))  ?  string.Format("+mapgroup {0} ", Configs.mapgroup) : "")
-                        + ((!string.IsNullOrEmpty(Configs.startmap))  ?  string.Format("+map {0} ", Configs.startmap) : "")
-                        + ((!string.IsNullOrEmpty(Configs.token))     ?  string.Format("+sv_setsteamaccount {0} ", Configs.token) : "")
-                        + ((!string.IsNullOrEmpty(Configs.groupids))  ?  string.Format("+sv_steamgroup {0} ", Configs.groupids) : "")
-                        + ((!string.IsNullOrEmpty(Configs.options))   ?  Configs.options : "");
+                        + ((!string.IsNullOrEmpty(Configs.SteamApi)) ? string.Format("-authkey {0} ", Configs.SteamApi) : "")
+                        + ((!string.IsNullOrEmpty(Configs.insecure) && int.TryParse(Configs.insecure, out int insecure) && insecure > 0) ? "-insecure " : "")
+                        + ((!string.IsNullOrEmpty(Configs.tickrate) && int.TryParse(Configs.tickrate, out int TickRate) && TickRate > 0) ? string.Format("-tickrate {0} ", TickRate) : "")
+                        + ((!string.IsNullOrEmpty(Configs.maxplayers) && int.TryParse(Configs.maxplayers, out int maxPlays) && maxPlays > 0) ? string.Format("-maxplayers_override {0} ", maxPlays) : "")
+                        + ((!string.IsNullOrEmpty(Configs.nobots) && int.TryParse(Configs.nobots, out int nobotsex) && nobotsex > 0) ? "-nobots " : "")
+                        + ((!string.IsNullOrEmpty(Configs.gametype) && int.TryParse(Configs.gametype, out int gameType) && gameType > 0) ? string.Format("+gametype {0} ", gameType) : "")
+                        + ((!string.IsNullOrEmpty(Configs.gamemode) && int.TryParse(Configs.gamemode, out int gameMode) && gameMode > 0) ? string.Format("+gamemode {0} ", gameMode) : "")
+                        + ((!string.IsNullOrEmpty(Configs.mapgroup)) ? string.Format("+mapgroup {0} ", Configs.mapgroup) : "")
+                        + ((!string.IsNullOrEmpty(Configs.startmap)) ? string.Format("+map \"{0}\" ", Configs.startmap) : "")
+                        + ((!string.IsNullOrEmpty(Configs.token)) ? string.Format("+sv_setsteamaccount {0} ", Configs.token) : "")
+                        + ((!string.IsNullOrEmpty(Configs.groupids)) ? string.Format("+sv_steamgroup {0} ", Configs.groupids) : "")
+                        + ((!string.IsNullOrEmpty(Configs.options)) ? Configs.options : "")
+                        ;
 
             try
             {
@@ -535,7 +547,7 @@ namespace Kxnrl.CSM
 
                 Thread.Sleep(1000);
             }
-            catch(Exception e)
+            catch (Exception e)
             {
                 Console.WriteLine("SRCDS start failed: {0}", e.Message);
                 Console.WriteLine("StackTrace:{0}{1}", Environment.NewLine, e.StackTrace);
@@ -543,7 +555,7 @@ namespace Kxnrl.CSM
                 Environment.Exit(-4);
             }
 
-            Logger.Log("Srcds Started! -> pid["+ Global.srcds.Id + "] path["+ Global.srcds.MainModule.FileName + "]");
+            Logger.Log("Srcds Started! -> pid[" + Global.srcds.Id + "] path[" + Global.srcds.MainModule.FileName + "] args[" + args + "]");
 
             Console.WriteLine("");
             Console.WriteLine("Commands: ");
@@ -571,28 +583,29 @@ namespace Kxnrl.CSM
             Global.tupdate.Start();
 
             Global.crash = false;
-            uint   a2stimeout = 0;
+            uint a2stimeout = 0;
             string srcdsError = null;
 
             while (true)
             {
-                Thread.Sleep(2000);
+                Thread.Sleep(3000);
 
                 if (Thread.CurrentThread.ThreadState == System.Threading.ThreadState.AbortRequested || Thread.CurrentThread.ThreadState == System.Threading.ThreadState.Aborted)
                     return;
 
-                if(Global.update)
+                if (Global.update)
                 {
                     Global.tcrash = null;
                     return;
                 }
 
-                srcdsError = SrcdsError();
+                srcdsError = SrcdsError(out string errType);
 
                 if (srcdsError != null)
                 {
                     srcdsError = string.Format("Srcds crashed -> Engine Error: " + srcdsError);
                     Logger.Log(srcdsError);
+                    Logger.Push("Server unexpectedly crashed", errType + ": " + srcdsError);
                     goto crashed;
                 }
                 else if (!A2S.Query(false))
@@ -615,10 +628,11 @@ namespace Kxnrl.CSM
                     a2stimeout = 0;
                 }
 
-                if(a2stimeout >= 10)
+                if (a2stimeout >= 10)
                 {
                     Logger.Log("Srcds crashed -> A2STimeout");
                     srcdsError = "Srcds crashed -> A2STimeout";
+                    Logger.Push("Server unexpectedly crashed", "A2S service timeout.");
                     goto crashed;
                 }
             }
@@ -658,6 +672,7 @@ namespace Kxnrl.CSM
             tray.notifyIcon.BalloonTipText = "Srcds crashed!";
             tray.notifyIcon.ShowBalloonTip(5000);
             Logger.Log("Srcds unexpectedly crashed!");
+            Logger.Push("Server unexpectedly crashed", "Crashing by close.");
 
             Global.crash = true;
 
@@ -666,14 +681,14 @@ namespace Kxnrl.CSM
                 Global.tcrash.Abort();
                 Global.tcrash = null;
             }
-            
-            if(Global.tupdate != null)
+
+            if (Global.tupdate != null)
             {
                 Global.tupdate.Abort();
                 Global.tupdate = null;
             }
 
-            if(Global.srcds != null)
+            if (Global.srcds != null)
             {
                 Global.srcds.Close();
                 Global.srcds.Dispose();
@@ -696,7 +711,7 @@ namespace Kxnrl.CSM
 
                 if (!SteamApi.GetLatestVersion())
                 {
-                    for(int cd = 60; cd > 0; cd--)
+                    for (int cd = 60; cd > 0; cd--)
                     {
                         Console.WriteLine("Server restart in " + cd + " seconds");
                         Win32Api.Message.Write(Global.srcds.MainWindowHandle, "say Server restart in " + cd + " seconds");
@@ -712,7 +727,7 @@ namespace Kxnrl.CSM
 
                 Thread.Sleep(300000);
             }
-            while(true);
+            while (true);
 
             done:
             Global.update = true;
@@ -820,22 +835,25 @@ namespace Kxnrl.CSM
             }
         }
 
-        static string SrcdsError()
+        static string SrcdsError(out string err)
         {
             string ret = null;
 
             ret = Helper.FindError("Engine Error");
             if (ret != null)
             {
+                err = "Engine Error";
                 return ret;
             }
 
             ret = Helper.FindError("Host_Error");
             if (ret != null)
             {
+                err = "Host_Error";
                 return ret;
             }
 
+            err = "Running";
             return ret;
         }
     }

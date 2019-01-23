@@ -48,7 +48,6 @@ namespace Kxnrl.CSM
         public static string groupids
         {
             get { return Get("SteamWorks", "Group", null); }
-            set { Set("SteamWorks", "Group", value); }
         }
 
         public static string ip
@@ -66,43 +65,36 @@ namespace Kxnrl.CSM
         public static string insecure
         {
             get { return Get("Server", "Insecure", null); }
-            set { Set("Server", "Insecure", value); }
         }
 
         public static string tickrate
         {
             get { return Get("Server", "TickRate", null); }
-            set { Set("Server", "TickRate", value); }
         }
 
         public static string maxplayers
         {
             get { return Get("Server", "MaxPlays", null); }
-            set { Set("Server", "MaxPlays", value); }
         }
 
         public static string nobots
         {
             get { return Get("Server", "NoBotsEx", null); }
-            set { Set("Server", "NoBotsEx", value); }
         }
 
         public static string gametype
         {
             get { return Get("Server", "GameType", null); }
-            set { Set("Server", "GameType", value); }
         }
 
         public static string gamemode
         {
             get { return Get("Server", "GameMode", null); }
-            set { Set("Server", "GameMode", value); }
         }
 
         public static string mapgroup
         {
             get { return Get("Server", "MapGroup", null); }
-            set { Set("Server", "MapGroup", value); }
         }
 
         public static string startmap
@@ -114,19 +106,21 @@ namespace Kxnrl.CSM
         public static string TokenApi
         {
             get { return Get("TokenApi", "ApiKey", null); }
-            set { Set("TokenApi", "ApiKey", value); }
         }
 
         public static string SteamApi
         {
             get { return Get("SteamWorks", "ApiKey", null); }
-            set { Set("SteamWorks", "ApiKey", value); }
         }
 
         public static string options
         {
             get { return Get("Server", "Options", null); }
-            set { Set("Server", "Options", value); }
+        }
+
+        public static string SCKEY
+        {
+            get { return Get("ServerChan", "SCKEY", null); }
         }
 
         [DllImport("kernel32", CharSet = CharSet.Unicode, SetLastError = true)]
@@ -234,6 +228,8 @@ namespace Kxnrl.CSM
                 Create("Server", "Options", "+exec options.cfg");
 
                 Create("TokenApi", "ApiKey", "null");
+
+                Create("ServerChan", "SCKEY", "null");
 
                 return false;
             }
