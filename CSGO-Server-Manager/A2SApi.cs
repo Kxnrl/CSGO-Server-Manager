@@ -28,7 +28,15 @@ namespace Kxnrl.CSM
                 {
                     if (Global.A2SFireWall)
                     {
-                        serverSock.SendTo(request_a2scsm, Global.ipep);
+                        if (Global.ipep.Address.ToString().Equals("0.0.0.0"))
+                        {
+                            serverSock.SendTo(request_a2scsm, new IPEndPoint(IPAddress.Parse("127.0.0.1"), Global.ipep.Port));
+                        }
+                        else
+                        {
+                            serverSock.SendTo(request_a2scsm, Global.ipep);
+                        }
+
                         serverSock.Receive(response, response.Length, SocketFlags.None);
                         results = Encoding.UTF8.GetString(response).Trim();
 

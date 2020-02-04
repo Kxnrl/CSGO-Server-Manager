@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Specialized;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Text;
 
@@ -11,6 +12,7 @@ namespace Kxnrl.CSM
         private static readonly string logFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "server_log.log");
         private static readonly string errFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "server_err.log");
         private static readonly string mapFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "server_map.log");
+        private static readonly string NewLine = "  " + Environment.NewLine;
 
         public static void Create()
         {
@@ -69,18 +71,20 @@ namespace Kxnrl.CSM
             }
         }
 
-        public static void Push(string text, string message)
+        public static void Push(string e, string m)
         {
-            string desp = "### " + Global.hostname + "  " + Environment.NewLine
-                + "人数:" + Global.currentPlayers.ToString() + "/" + Global.maximumPlayers.ToString() + "  " + Environment.NewLine
-                + "地图:" + Global.currentMap + "  " + Environment.NewLine
-                + "原因:" + message;
+            string desp = "### " + Global.hostname + NewLine
+                + "时间:" + DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss") + NewLine
+                + "人数:" + Global.currentPlayers.ToString() + "/" + Global.maximumPlayers.ToString() + NewLine
+                + "地图:" + Global.currentMap + NewLine
+                + "事件:" + e + NewLine
+                + "原因:" + m;
 
-            NameValueCollection form = new NameValueCollection();
-            form.Add("text", text);
-            form.Add("desp", desp);
-
-            POST("https://sc.ftqq.com/" + Configs.SCKEY + ".send", form);
+            POST("https://sc.ftqq.com/" + Configs.SCKEY + ".send", new NameValueCollection
+            {
+                { "text", Configs.game.First().ToString().ToUpper() + Configs.game.Substring(1) + "." + "SRCDS" + "." + "Crashed" },
+                { "desp", desp }
+            });
         }
 
         private static void POST(string url, NameValueCollection form)

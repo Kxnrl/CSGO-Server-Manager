@@ -23,6 +23,7 @@ using System.IO;
 using System.Net;
 using System.Text;
 using Microsoft.Win32;
+using System.Reflection;
 
 namespace Kxnrl.CSM
 {
@@ -38,7 +39,7 @@ namespace Kxnrl.CSM
 
         public static IntPtr myHwnd = IntPtr.Zero;
 
-        public static readonly string version = "1.4.3";
+        public static readonly string version = Assembly.GetExecutingAssembly().GetName().Version.ToString().TrimEnd(new char[] { '.', '0' });
 
         [STAThread]
         static void Main(string[] args)
@@ -228,9 +229,11 @@ namespace Kxnrl.CSM
             Win32Api.Window.Hide(myHwnd);
             currentShow = false;
 
-            Global.tcrash = new Thread(Thread_CheckCrashs);
-            Global.tcrash.IsBackground = true;
-            Global.tcrash.Name = "Crash Thread";
+            Global.tcrash = new Thread(Thread_CheckCrashs)
+            {
+                IsBackground = true,
+                Name = "Crash Thread"
+            };
             Global.tcrash.Start();
 
             new Thread(
@@ -323,9 +326,11 @@ namespace Kxnrl.CSM
                         Global.srcds.EnableRaisingEvents = false;
                         Global.srcds.Exited -= Srcds_OnExited;
                         Helper.KillSRCDS(true);
-                        Global.tcrash = new Thread(Thread_CheckCrashs);
-                        Global.tcrash.IsBackground = true;
-                        Global.tcrash.Name = "Crash Thread";
+                        Global.tcrash = new Thread(Thread_CheckCrashs)
+                        {
+                            IsBackground = true,
+                            Name = "Crash Thread"
+                        };
                         Global.tcrash.Start();
                         break;
                     default:
@@ -516,23 +521,22 @@ namespace Kxnrl.CSM
             }
 
             string args = "-console" + " "
-                        + "-ip " + Configs.ip + " "
-                        + "-port " + Configs.port + " "
-                        + "+ip " + Configs.ip + " "
-                        //+ "-game " + Configs.game + " "
-                        + "-csm " + version + " "
-                        + ((!string.IsNullOrEmpty(Configs.SteamApi)) ? string.Format("-authkey {0} ", Configs.SteamApi) : "")
-                        + ((!string.IsNullOrEmpty(Configs.insecure) && int.TryParse(Configs.insecure, out int insecure) && insecure > 0) ? "-insecure " : "")
-                        + ((!string.IsNullOrEmpty(Configs.tickrate) && int.TryParse(Configs.tickrate, out int TickRate) && TickRate > 0) ? string.Format("-tickrate {0} ", TickRate) : "")
+                        + "-ip "      + Configs.ip   + " "
+                        + "-port "    + Configs.port + " "
+                        + "-game \""  + Configs.game + "\" "
+                        + "-csm "     + version      + " "
+                        + ((!string.IsNullOrEmpty(Configs.insecure)   && int.TryParse(Configs.insecure,   out int insecure) && insecure > 0) ? "-insecure " : "")
+                        + ((!string.IsNullOrEmpty(Configs.tickrate)   && int.TryParse(Configs.tickrate,   out int TickRate) && TickRate > 0) ? string.Format("-tickrate {0} ", TickRate) : "")
                         + ((!string.IsNullOrEmpty(Configs.maxplayers) && int.TryParse(Configs.maxplayers, out int maxPlays) && maxPlays > 0) ? string.Format("-maxplayers_override {0} ", maxPlays) : "")
-                        + ((!string.IsNullOrEmpty(Configs.nobots) && int.TryParse(Configs.nobots, out int nobotsex) && nobotsex > 0) ? "-nobots " : "")
-                        + ((!string.IsNullOrEmpty(Configs.gametype) && int.TryParse(Configs.gametype, out int gameType) && gameType > 0) ? string.Format("+gametype {0} ", gameType) : "")
-                        + ((!string.IsNullOrEmpty(Configs.gamemode) && int.TryParse(Configs.gamemode, out int gameMode) && gameMode > 0) ? string.Format("+gamemode {0} ", gameMode) : "")
-                        + ((!string.IsNullOrEmpty(Configs.mapgroup)) ? string.Format("+mapgroup {0} ", Configs.mapgroup) : "")
-                        + ((!string.IsNullOrEmpty(Configs.startmap)) ? string.Format("+map \"{0}\" ", Configs.startmap) : "")
-                        + ((!string.IsNullOrEmpty(Configs.token)) ? string.Format("+sv_setsteamaccount {0} ", Configs.token) : "")
-                        + ((!string.IsNullOrEmpty(Configs.groupids)) ? string.Format("+sv_steamgroup {0} ", Configs.groupids) : "")
-                        + ((!string.IsNullOrEmpty(Configs.options)) ? Configs.options : "")
+                        + ((!string.IsNullOrEmpty(Configs.nobots)     && int.TryParse(Configs.nobots,     out int nobotsex) && nobotsex > 0) ? "-nobots " : "")
+                        + ((!string.IsNullOrEmpty(Configs.gametype)   && int.TryParse(Configs.gametype,   out int gameType) && gameType > 0) ? string.Format("+gametype {0} ", gameType) : "")
+                        + ((!string.IsNullOrEmpty(Configs.gamemode)   && int.TryParse(Configs.gamemode,   out int gameMode) && gameMode > 0) ? string.Format("+gamemode {0} ", gameMode) : "")
+                        + ((!string.IsNullOrEmpty(Configs.SteamApi))   ? string.Format("-authkey {0} ",            Configs.SteamApi) : "")
+                        + ((!string.IsNullOrEmpty(Configs.mapgroup))   ? string.Format("+mapgroup {0} ",           Configs.mapgroup) : "")
+                        + ((!string.IsNullOrEmpty(Configs.startmap))   ? string.Format("+map \"{0}\" ",            Configs.startmap) : "")
+                        + ((!string.IsNullOrEmpty(Configs.token))      ? string.Format("+sv_setsteamaccount {0} ", Configs.token)    : "")
+                        + ((!string.IsNullOrEmpty(Configs.groupids))   ? string.Format("+sv_steamgroup {0} ",      Configs.groupids) : "")
+                        + ((!string.IsNullOrEmpty(Configs.options))    ? Configs.options : "")
                         ;
 
             try
@@ -546,6 +550,29 @@ namespace Kxnrl.CSM
                 Global.srcds.Start();
 
                 Thread.Sleep(1000);
+
+                Logger.Log("Srcds Started! -> pid[" + Global.srcds.Id + "] path[" + Global.srcds.MainModule.FileName + "]");
+
+                Console.WriteLine("");
+                Console.WriteLine("Commands: ");
+                Console.WriteLine("show    - show srcds console window.");
+                Console.WriteLine("hide    - hide srcds console window.");
+                Console.WriteLine("exec    - exec command into srcds.");
+                Console.WriteLine("quit    - quit srcds and application.");
+                Console.WriteLine("exit    - quit srcds and application.");
+                Console.WriteLine("update  - force srcds update.");
+                Console.WriteLine("restart - force srcds restart.");
+                Console.Write(Environment.NewLine);
+
+                Thread.Sleep(6666);
+                if (!currentShow)
+                {
+                    Win32Api.Window.Hide(Global.srcds.MainWindowHandle);
+                }
+
+                // Set to High
+                Global.srcds.PriorityClass = ProcessPriorityClass.High;
+
             }
             catch (Exception e)
             {
@@ -555,31 +582,11 @@ namespace Kxnrl.CSM
                 Environment.Exit(-4);
             }
 
-            Logger.Log("Srcds Started! -> pid[" + Global.srcds.Id + "] path[" + Global.srcds.MainModule.FileName + "] args[" + args + "]");
-
-            Console.WriteLine("");
-            Console.WriteLine("Commands: ");
-            Console.WriteLine("show    - show srcds console window.");
-            Console.WriteLine("hide    - hide srcds console window.");
-            Console.WriteLine("exec    - exec command into srcds.");
-            Console.WriteLine("quit    - quit srcds and application.");
-            Console.WriteLine("exit    - quit srcds and application.");
-            Console.WriteLine("update  - force srcds update.");
-            Console.WriteLine("restart - force srcds restart.");
-            Console.Write(Environment.NewLine);
-
-            Thread.Sleep(6666);
-            if (!currentShow)
+            Global.tupdate = new Thread(Thread_UpdateCheck)
             {
-                Win32Api.Window.Hide(Global.srcds.MainWindowHandle);
-            }
-
-            // Set to High
-            Global.srcds.PriorityClass = ProcessPriorityClass.High;
-
-            Global.tupdate = new Thread(Thread_UpdateCheck);
-            Global.tupdate.IsBackground = true;
-            Global.tupdate.Name = "Update Thread";
+                IsBackground = true,
+                Name = "Update Thread"
+            };
             Global.tupdate.Start();
 
             Global.crash = false;
@@ -603,9 +610,8 @@ namespace Kxnrl.CSM
 
                 if (srcdsError != null)
                 {
-                    srcdsError = string.Format("Srcds crashed -> Engine Error: " + srcdsError);
-                    Logger.Log(srcdsError);
                     Logger.Push("Server unexpectedly crashed", errType + ": " + srcdsError);
+                    Logger.Log("Srcds crashed -> " + errType + ": " + srcdsError);
                     goto crashed;
                 }
                 else if (!A2S.Query(false))
@@ -647,7 +653,7 @@ namespace Kxnrl.CSM
 
             // notify icon
             tray.notifyIcon.BalloonTipTitle = "CSGO Server Manager";
-            tray.notifyIcon.BalloonTipText = (srcdsError == null) ? "SRCDS crashed!" : srcdsError;
+            tray.notifyIcon.BalloonTipText = srcdsError ?? "SRCDS crashed!";
             tray.notifyIcon.ShowBalloonTip(5000);
 
             // check?
@@ -660,9 +666,11 @@ namespace Kxnrl.CSM
 
             // new tread
             Thread.Sleep(1500);
-            Global.tcrash = new Thread(Thread_CheckCrashs);
-            Global.tcrash.IsBackground = true;
-            Global.tcrash.Name = "Crash Thread";
+            Global.tcrash = new Thread(Thread_CheckCrashs)
+            {
+                IsBackground = true,
+                Name = "Crash Thread"
+            };
             Global.tcrash.Start();
         }
 
@@ -696,9 +704,11 @@ namespace Kxnrl.CSM
             }
 
             Thread.Sleep(1500);
-            Global.tcrash = new Thread(Thread_CheckCrashs);
-            Global.tcrash.IsBackground = true;
-            Global.tcrash.Name = "Crash Thread";
+            Global.tcrash = new Thread(Thread_CheckCrashs)
+            {
+                IsBackground = true,
+                Name = "Crash Thread"
+            };
             Global.tcrash.Start();
         }
 
@@ -784,9 +794,11 @@ namespace Kxnrl.CSM
                 Thread.Sleep(1000);
 
                 Global.update = false;
-                Global.tcrash = new Thread(Thread_CheckCrashs);
-                Global.tcrash.IsBackground = true;
-                Global.tcrash.Name = "Crash Thread";
+                Global.tcrash = new Thread(Thread_CheckCrashs)
+                {
+                    IsBackground = true,
+                    Name = "Crash Thread"
+                };
                 Global.tcrash.Start();
             }
         }
@@ -827,9 +839,11 @@ namespace Kxnrl.CSM
 
                     Thread.Sleep(1000);
 
-                    Global.tcrash = new Thread(Thread_CheckCrashs);
-                    Global.tcrash.IsBackground = true;
-                    Global.tcrash.Name = "Crash Thread";
+                    Global.tcrash = new Thread(Thread_CheckCrashs)
+                    {
+                        IsBackground = true,
+                        Name = "Crash Thread"
+                    };
                     Global.tcrash.Start();
                 }
             }
