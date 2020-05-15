@@ -9,20 +9,20 @@ namespace Kxnrl.CSM
     {
         public static string srcds
         {
-            get { return Get("Global", "srcds", null); }
-            set { Set("Global", "srcds", value); }
+            get => Get("Global", "srcds", null);
+            set => Set("Global", "srcds", value);
         }
 
         public static string steam
         {
-            get { return Get("Global", "steam", null); }
-            set { Set("Global", "steam", value); }
+            get => Get("Global", "steam", null);
+            set => Set("Global", "steam", value);
         }
 
         public static string game
         {
-            get { return Get("Global", "game", "csgo"); }
-            set { Set("Global", "game", value); }
+            get => Get("Global", "game", "csgo");
+            set => Set("Global", "game", value);
         }
 
         public static string appid
@@ -41,87 +41,41 @@ namespace Kxnrl.CSM
 
         public static string token
         {
-            get { return Get("SteamWorks", "Token", null); }
-            set { Set("SteamWorks", "Token", value); }
-        }
-
-        public static string groupids
-        {
-            get { return Get("SteamWorks", "Group", null); }
+            get => Get("SteamWorks", "Token", null);
+            set => Set("SteamWorks", "Token", value);
         }
 
         public static string ip
         {
-            get { return Get("Server", "IP", null); }
-            set { Set("Server", "IP", value); }
+            get => Get("Server", "IP", null);
+            set => Set("Server", "IP", value);
         }
 
         public static string port
         {
-            get { return Get("Server", "Port", null); }
-            set { Set("Server", "Port", value); }
-        }
-
-        public static string insecure
-        {
-            get { return Get("Server", "Insecure", null); }
-        }
-
-        public static string tickrate
-        {
-            get { return Get("Server", "TickRate", null); }
-        }
-
-        public static string maxplayers
-        {
-            get { return Get("Server", "MaxPlays", null); }
-        }
-
-        public static string nobots
-        {
-            get { return Get("Server", "NoBotsEx", null); }
-        }
-
-        public static string gametype
-        {
-            get { return Get("Server", "GameType", null); }
-        }
-
-        public static string gamemode
-        {
-            get { return Get("Server", "GameMode", null); }
-        }
-
-        public static string mapgroup
-        {
-            get { return Get("Server", "MapGroup", null); }
+            get => Get("Server", "Port", null);
+            set => Set("Server", "Port", value);
         }
 
         public static string startmap
         {
-            get { return Get("Server", "StartMap", null); }
-            set { Set("Server", "StartMap", value); }
+            get => Get("Server", "StartMap", null);
+            set => Set("Server", "StartMap", value);
         }
 
-        public static string TokenApi
-        {
-            get { return Get("TokenApi", "ApiKey", null); }
-        }
-
-        public static string SteamApi
-        {
-            get { return Get("SteamWorks", "ApiKey", null); }
-        }
-
-        public static string options
-        {
-            get { return Get("Server", "Options", null); }
-        }
-
-        public static string SCKEY
-        {
-            get { return Get("ServerChan", "SCKEY", null); }
-        }
+        public static string groupids => Get("SteamWorks", "Group", null);
+        public static string insecure => Get("Server", "Insecure", null);
+        public static string tickrate => Get("Server", "TickRate", null);
+        public static string maxplayers => Get("Server", "MaxPlays", null);
+        public static string nobots => Get("Server", "NoBotsEx", null);
+        public static string nohltv => Get("Server", "NoHLTVEx", null);
+        public static string gametype => Get("Server", "GameType", null);
+        public static string gamemode => Get("Server", "GameMode", null);
+        public static string mapgroup => Get("Server", "MapGroup", null);
+        public static string TokenApi => Get("TokenApi", "ApiKey", null);
+        public static string SteamApi => Get("SteamWorks", "ApiKey", null);
+        public static string options => Get("Server", "Options", null);
+        public static string SCKEY => Get("ServerChan", "SCKEY", null);
 
         [DllImport("kernel32", CharSet = CharSet.Unicode, SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
@@ -130,8 +84,8 @@ namespace Kxnrl.CSM
         [DllImport("kernel32.dll")]
         private static extern int GetPrivateProfileString(string section, string key, string def, StringBuilder retval, int size, string filePath);
 
-        private static StringBuilder stringBuilder = new StringBuilder(1024);
-        public static string Get(string section, string key, string defaultValue)
+        private static readonly StringBuilder stringBuilder = new StringBuilder(1024);
+        private static string Get(string section, string key, string defaultValue)
         {
             GetPrivateProfileString(section, key, defaultValue, stringBuilder, 1024, Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "server_config.ini"));
             if (stringBuilder.ToString().Equals("null"))
@@ -158,7 +112,7 @@ namespace Kxnrl.CSM
         private static string backup = string.Empty;
         private static void Backup()
         {
-            using (StreamReader file = new StreamReader(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "server_config.ini")))
+            using (var file = new StreamReader(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "server_config.ini")))
             {
                 backup = file.ReadToEnd();
                 if (backup.Length <= 128)
@@ -175,7 +129,7 @@ namespace Kxnrl.CSM
                 return;
 
             Global.watcher.EnableRaisingEvents = false;
-            using (StreamWriter file = new StreamWriter(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "server_config_backup.ini"), false, Encoding.Unicode))
+            using (var file = new StreamWriter(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "server_config_backup.ini"), false, Encoding.Unicode))
             {
                 file.Write(Global.backup);
             }
@@ -221,6 +175,7 @@ namespace Kxnrl.CSM
                 Create("Server", "TickRate", "128");
                 Create("Server", "MaxPlays", "64");
                 Create("Server", "NoBotsEx", "0");
+                Create("Server", "NoHLTVEx", "0");
                 Create("Server", "GameType", "0");
                 Create("Server", "GameMode", "0");
                 Create("Server", "MapGroup", "custom_maps");

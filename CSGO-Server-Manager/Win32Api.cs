@@ -12,7 +12,7 @@ namespace Kxnrl.CSM.Win32Api
         private const uint GW_HWNDPREV = 3; // The previous window is above
 
         [DllImport("user32.dll", EntryPoint = "FindWindow")]
-        public extern static IntPtr FindWindow(string lpClassName, string lpWindowName);
+        public static extern IntPtr FindWindow(string lpClassName, string lpWindowName);
         [DllImport("user32.dll", EntryPoint = "FindWindow")]
         public static extern IntPtr FindWindowEx(IntPtr hwndParent, IntPtr hwndChildAfter, string lpszClass, string lpszWindow);
         [DllImport("user32.dll", EntryPoint = "ShowWindow", SetLastError = true)]
@@ -93,7 +93,7 @@ namespace Kxnrl.CSM.Win32Api
     class Message
     {
         [DllImport("User32.dll")]
-        public static extern IntPtr SendMessage(IntPtr hWnd, int wMsg, int wParam, int lParam);
+        private static extern IntPtr SendMessage(IntPtr hWnd, int wMsg, int wParam, int lParam);
         [DllImport("User32.dll", EntryPoint = "PostMessage")]
         private static extern bool PostMessage(IntPtr hWnd, int Msg, int wParam, int lParam);
 

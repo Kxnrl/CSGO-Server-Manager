@@ -18,25 +18,25 @@ namespace Kxnrl.CSM
         {
             if (!File.Exists(logFile))
             {
-                using (FileStream fs = File.Create(logFile))
+                using (var fs = File.Create(logFile))
                 {
-                    byte[] bytes = Encoding.UTF8.GetBytes("----------------------------------------\nCSGO Server Manager log File\nDescription: Server log in chronological order.\nThis file was auto generate by CSM.\n----------------------------------------\nYYYY/MM/DD HH:MM:SS | Event\n----------------------------------------\n");
+                    var bytes = Encoding.UTF8.GetBytes("----------------------------------------\nCSGO Server Manager log File\nDescription: Server log in chronological order.\nThis file was auto generate by CSM.\n----------------------------------------\nYYYY/MM/DD HH:MM:SS | Event\n----------------------------------------\n");
                     fs.Write(bytes, 0, bytes.Length);
                 }
             }
 
             if (!File.Exists(errFile))
             {
-                using (FileStream fs = File.Create(errFile))
+                using (var fs = File.Create(errFile))
                 {
-                    byte[] bytes = Encoding.UTF8.GetBytes("----------------------------------------\nCSGO Server Manager log File\nDescription: Server error log in chronological order.\nThis file was auto generate by CSM.\n----------------------------------------\nYYYY/MM/DD HH:MM:SS | Event\n----------------------------------------\n");
+                    var bytes = Encoding.UTF8.GetBytes("----------------------------------------\nCSGO Server Manager log File\nDescription: Server error log in chronological order.\nThis file was auto generate by CSM.\n----------------------------------------\nYYYY/MM/DD HH:MM:SS | Event\n----------------------------------------\n");
                     fs.Write(bytes, 0, bytes.Length);
                 }
             }
 
             if (!File.Exists(mapFile))
             {
-                using (FileStream fs = File.Create(mapFile))
+                using (var fs = File.Create(mapFile))
                 {
                     byte[] bytes = Encoding.UTF8.GetBytes("----------------------------------------\nCSGO Server Manager log File\nDescription: Server map log in chronological order.\nThis file was auto generate by CSM.\n----------------------------------------\nYYYY/MM/DD HH:MM:SS | Event\n----------------------------------------\n");
                     fs.Write(bytes, 0, bytes.Length);
@@ -46,7 +46,7 @@ namespace Kxnrl.CSM
 
         public static void Log(string log)
         {
-            using (StreamWriter writer = new StreamWriter(logFile, true))
+            using (var writer = new StreamWriter(logFile, true))
             {
                 writer.WriteLine("[" + DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss") + "] >>> " + log);
                 Console.WriteLine(DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss") + " >>> " + log);
@@ -55,7 +55,7 @@ namespace Kxnrl.CSM
 
         public static void Error(string err)
         {
-            using (StreamWriter writer = new StreamWriter(errFile, true))
+            using (var writer = new StreamWriter(errFile, true))
             {
                 writer.WriteLine("[" + DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss") + "] >>> " + err);
                 Console.WriteLine(DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss") + " >>> " + err);
@@ -64,7 +64,7 @@ namespace Kxnrl.CSM
 
         public static void Map(string map)
         {
-            using (StreamWriter writer = new StreamWriter(mapFile, true))
+            using (var writer = new StreamWriter(mapFile, true))
             {
                 writer.WriteLine("[" + DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss") + "] >>> Changed Map to " + map);
                 Console.WriteLine("{0} >>> Changed Map to {1}", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"), map);
@@ -73,12 +73,12 @@ namespace Kxnrl.CSM
 
         public static void Push(string e, string m)
         {
-            string desp = "### " + Global.hostname + NewLine
-                + "时间:" + DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss") + NewLine
-                + "人数:" + Global.currentPlayers.ToString() + "/" + Global.maximumPlayers.ToString() + NewLine
-                + "地图:" + Global.currentMap + NewLine
-                + "事件:" + e + NewLine
-                + "原因:" + m;
+            var desp = "### " + Global.hostname + NewLine
+                       + "时间:" + DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss") + NewLine
+                       + "人数:" + Global.currentPlayers.ToString() + "/" + Global.maximumPlayers.ToString() + NewLine
+                       + "地图:" + Global.currentMap + NewLine
+                       + "事件:" + e + NewLine
+                       + "原因:" + m;
 
             POST("https://sc.ftqq.com/" + Configs.SCKEY + ".send", new NameValueCollection
             {
@@ -91,7 +91,7 @@ namespace Kxnrl.CSM
         {
             try
             {
-                using (WebClient client = new WebClient())
+                using (var client = new WebClient())
                 {
                     client.Headers.Add("Content-Type", "application/x-www-form-urlencoded");
                     client.UploadValues(url, "POST", form);

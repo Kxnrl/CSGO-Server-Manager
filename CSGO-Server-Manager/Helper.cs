@@ -15,31 +15,31 @@ namespace Kxnrl.CSM
     {
         public static string GetLocalIpAddress()
         {
-            IPHostEntry IpEntry = Dns.GetHostEntry(Dns.GetHostName());
-
-            for (int i = 0; i < IpEntry.AddressList.Length; i++)
+            string addr = null;
+            Dns.GetHostEntry(Dns.GetHostName()).AddressList.ToList().ForEach(address =>
             {
-                if (IpEntry.AddressList[i].AddressFamily != AddressFamily.InterNetwork)
-                    continue;
+                if (address.AddressFamily != AddressFamily.InterNetwork)
+                    return;
 
-                string ip = IpEntry.AddressList[i].ToString();
-
+                var ip = address.ToString();
                 if (ip.StartsWith("10.") || ip.StartsWith("172.") || ip.StartsWith("192."))
-                    continue;
+                    return;
 
-                return ip;
-            }
-            return "Invalid Local Ip Adress (伺服器沒有公網IP)";
+                addr = ip;
+            });
+
+            return addr ?? "Invalid Local Ip Adress (伺服器沒有公網IP)";
         }
 
         public static bool PortAvailable(int port)
         {
-            return !((from p in IPGlobalProperties.GetIPGlobalProperties().GetActiveUdpListeners() where p.Port == port select p).Count() == 1);
+            return IPGlobalProperties.GetIPGlobalProperties().GetActiveUdpListeners().Where(p => p.Port == port).LongCount() == 1;
+            //return !((from p in IPGlobalProperties.GetIPGlobalProperties().GetActiveUdpListeners() where p.Port == port select p).Count() == 1);
         }
 
         public static Process GetAppByPort(int checkPort)
         {
-            using (Process netstats = new Process())
+            using (var netstats = new Process())
             {
                 netstats.StartInfo.FileName = "netstat.exe";
                 netstats.StartInfo.Arguments = "-a -n -o";
@@ -51,28 +51,28 @@ namespace Kxnrl.CSM
                 netstats.Start();
                 netstats.WaitForExit(1000);
 
-                using (StreamReader sr = netstats.StandardOutput)
+                using (var sr = netstats.StandardOutput)
                 {
-                    string output = sr.ReadToEnd();
+                    var output = sr.ReadToEnd();
                     if (netstats.ExitCode != 0)
                         throw new Exception("netstats ExitCode = " + netstats.ExitCode);
 
-                    string[] lines = Regex.Split(output, "\r\n");
+                    var lines = Regex.Split(output, "\r\n");
                     foreach (var line in lines)
                     {
                         // first line 嘻嘻
                         if (line.Trim().StartsWith("Proto"))
                             continue;
 
-                        string[] parts = line.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                        var parts = line.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
 
                         if (parts.Length < 2)
                             continue;
 
-                        if (!int.TryParse(parts[parts.Length - 1], out int pid))
+                        if (!int.TryParse(parts[parts.Length - 1], out var pid))
                             continue;
 
-                        if (!int.TryParse(parts[1].Split(':').Last(), out int port))
+                        if (!int.TryParse(parts[1].Split(':').Last(), out var port))
                             continue;
 
                         if (port != checkPort)
@@ -132,7 +132,7 @@ namespace Kxnrl.CSM
 
             Thread.Sleep(1500);
 
-            uint sec = 0;
+            var sec = 0u;
             while (!exe.HasExited)
             {
                 Thread.Sleep(1000);
@@ -157,7 +157,7 @@ namespace Kxnrl.CSM
             Global.srcds.EnableRaisingEvents = false;
             Global.srcds.Exited -= Program.Srcds_OnExited;
 
-            uint sec = 0;
+            var sec = 0u;
             while (!srcds.HasExited)
             {
                 Thread.Sleep(1000);
@@ -179,10 +179,10 @@ namespace Kxnrl.CSM
         {
             Global.watcher = new FileSystemWatcher(AppDomain.CurrentDomain.BaseDirectory, "server_config.ini");
             Global.watcher.NotifyFilter = NotifyFilters.LastAccess | NotifyFilters.LastWrite | NotifyFilters.FileName;
-            Global.watcher.Changed += new FileSystemEventHandler(ConfigFile_OnChanged);
-            Global.watcher.Created += new FileSystemEventHandler(ConfigFile_OnChanged);
-            Global.watcher.Deleted += new FileSystemEventHandler(ConfigFile_OnChanged);
-            Global.watcher.Renamed += new RenamedEventHandler(ConfigFile_OnRenamed);
+            Global.watcher.Changed += ConfigFile_OnChanged;
+            Global.watcher.Created += ConfigFile_OnChanged;
+            Global.watcher.Deleted += ConfigFile_OnChanged;
+            Global.watcher.Renamed += ConfigFile_OnRenamed;
             Global.watcher.EnableRaisingEvents = true;
         }
 
@@ -204,28 +204,27 @@ namespace Kxnrl.CSM
         {
             string message = null;
 
-            IntPtr handle = Win32Api.Window.FindWindow(null, name);
+            var handle = Win32Api.Window.FindWindow(null, name);
             if (handle == IntPtr.Zero)
             {
                 // Not Found
                 return message;
             }
 
-            int tid_cl = Win32Api.Window.GetWindowThreadProcessId(handle, out int pid);
+            var tid_cl = Win32Api.Window.GetWindowThreadProcessId(handle, out var pid);
             if (Global.srcds.Id != pid)
             {
                 // Not casuse by current srcds.
                 return message;
             }
 
-            StringBuilder sb = new StringBuilder(256);
+            var sb = new StringBuilder(256);
             Win32Api.Window.EnumChildWindows
             (
                 handle,
                 (hwnd, lparma) =>
                 {
-                    sb.Clear();
-                    int length = Win32Api.Window.GetWindowTextLength(hwnd);
+                    var length = Win32Api.Window.GetWindowTextLength(hwnd);
                     Win32Api.Window.GetWindowText(hwnd, sb, length + 1);
 
                     if (sb.ToString().Equals("确定") || sb.ToString().Equals("OK"))

@@ -20,6 +20,7 @@ using System.Threading;
 using System.Windows.Forms;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Text;
 using Microsoft.Win32;
@@ -37,36 +38,36 @@ namespace Kxnrl.CSM
             public static MenuItem exitButton;
         }
 
-        public static IntPtr myHwnd = IntPtr.Zero;
+        private static IntPtr myHwnd = IntPtr.Zero;
 
-        public static readonly string version = Assembly.GetExecutingAssembly().GetName().Version.ToString().TrimEnd(new char[] { '.', '0' });
+        private static readonly string version = Assembly.GetExecutingAssembly().GetName().Version.ToString().Replace(".0", "");
 
         [STAThread]
-        static void Main(string[] args)
+        static void Main()
         {
             // check run once
-            Mutex self = new Mutex(true, Application.StartupPath.GetHashCode().ToString(), out bool allow);
+            var self = new Mutex(true, Application.StartupPath.GetHashCode().ToString(), out bool allow);
             if (!allow)
             {
                 MessageBox.Show("CSM is already running.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 Environment.Exit(-1);
             }
 
-            Process myProc = Process.GetCurrentProcess();
+            var myProc = Process.GetCurrentProcess();
             myProc.PriorityClass = ProcessPriorityClass.BelowNormal;
             myHwnd = myProc.MainWindowHandle;
 
             // Event
-            Application.ThreadException += new ThreadExceptionEventHandler(ExceptionHandler_CurrentThread);
-            AppDomain.CurrentDomain.UnhandledException += new UnhandledExceptionEventHandler(ExceptionHandler_AppDomain);
-            AppDomain.CurrentDomain.ProcessExit += new EventHandler(ApplicationHandler_OnExit);
-            SystemEvents.PowerModeChanged += new PowerModeChangedEventHandler(ApplicationHandler_PowerModeChanged);
-            Win32Api.ConsoleCTRL.ConsoleClosed(new Win32Api.ConsoleCTRL.HandlerRoutine(ApplicationHandler_OnClose));
+            Application.ThreadException += ExceptionHandler_CurrentThread;
+            AppDomain.CurrentDomain.UnhandledException += ExceptionHandler_AppDomain;
+            AppDomain.CurrentDomain.ProcessExit += ApplicationHandler_OnExit;
+            SystemEvents.PowerModeChanged += ApplicationHandler_PowerModeChanged;
+            Win32Api.ConsoleCTRL.ConsoleClosed(ApplicationHandler_OnClose);
             Win32Api.PowerMode.NoSleep();
 
             Console.Title = "CSGO Server Manager v" + version;
 
-            bool conf = Configs.Check();
+            var conf = Configs.Check();
             if (!conf)
             {
                 Console.WriteLine("{0} >>> Configs was initialized -> You can modify it manually!", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"));
@@ -77,7 +78,7 @@ namespace Kxnrl.CSM
 
             while (!File.Exists(Configs.srcds))
             {
-                using (OpenFileDialog fileBrowser = new OpenFileDialog())
+                using (var fileBrowser = new OpenFileDialog())
                 {
                     fileBrowser.Multiselect = false;
                     fileBrowser.Filter = "CSGO Dedicated Server (srcds.exe)|srcds.exe";
@@ -97,7 +98,7 @@ namespace Kxnrl.CSM
 
             while (!File.Exists(Configs.steam))
             {
-                using (OpenFileDialog fileBrowser = new OpenFileDialog())
+                using (var fileBrowser = new OpenFileDialog())
                 {
                     fileBrowser.Multiselect = false;
                     fileBrowser.Filter = "SteamCmd (steamcmd.exe)|steamcmd.exe";
@@ -115,7 +116,7 @@ namespace Kxnrl.CSM
                 }
             }
 
-            if (string.IsNullOrEmpty(Configs.ip) || !IPAddress.TryParse(Configs.ip, out IPAddress ipadr))
+            if (string.IsNullOrEmpty(Configs.ip) || !IPAddress.TryParse(Configs.ip, out var ipadr))
             {
                 do
                 {
@@ -125,7 +126,7 @@ namespace Kxnrl.CSM
                 while (!IPAddress.TryParse(Configs.ip, out ipadr));
             }
 
-            if (string.IsNullOrEmpty(Configs.port) || !int.TryParse(Configs.port, out int port))
+            if (string.IsNullOrEmpty(Configs.port) || !int.TryParse(Configs.port, out var port))
             {
                 do
                 {
@@ -153,16 +154,19 @@ namespace Kxnrl.CSM
                 }
             }
 
-            Process[] process = Process.GetProcessesByName("srcds");
-            foreach (Process exe in process)
+            var process = 0;
+            Process.GetProcessesByName("srcds").ToList().ForEach(exe =>
             {
                 if (exe.MainModule.FileName.Equals(Configs.srcds))
                 {
                     Helper.ForceQuit(exe);
-                    Console.WriteLine("{0} >>> Force close old srcds before new srcds start.", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"));
+                    Console.WriteLine("{0} >>> Force close old srcds before new srcds start.",
+                        DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"));
                 }
-            }
-            Console.WriteLine("{0} >>> {1} SRCDS are running on current host.", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"), process.Length);
+
+                process++;
+            });
+            Console.WriteLine("{0} >>> {1} SRCDS are running on current host.", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"), process);
 
             if (!string.IsNullOrEmpty(Configs.TokenApi))
             {
@@ -236,30 +240,28 @@ namespace Kxnrl.CSM
             };
             Global.tcrash.Start();
 
-            new Thread(
-                delegate ()
+            new Thread(() =>
+            {
+                tray.notifyMenu = new ContextMenu();
+                tray.showHide = new MenuItem("Show");
+                tray.exitButton = new MenuItem("Exit");
+                tray.notifyMenu.MenuItems.Add(0, tray.showHide);
+                tray.notifyMenu.MenuItems.Add(1, tray.exitButton);
+
+                tray.notifyIcon = new NotifyIcon()
                 {
-                    tray.notifyMenu = new ContextMenu();
-                    tray.showHide = new MenuItem("Show");
-                    tray.exitButton = new MenuItem("Exit");
-                    tray.notifyMenu.MenuItems.Add(0, tray.showHide);
-                    tray.notifyMenu.MenuItems.Add(1, tray.exitButton);
+                    BalloonTipIcon = ToolTipIcon.Info,
+                    ContextMenu = tray.notifyMenu,
+                    Text = "CSGO Server Manager",
+                    Icon = Properties.Resources.lilia,
+                    Visible = true,
+                };
 
-                    tray.notifyIcon = new NotifyIcon()
-                    {
-                        BalloonTipIcon = ToolTipIcon.Info,
-                        ContextMenu = tray.notifyMenu,
-                        Text = "CSGO Server Manager",
-                        Icon = Properties.Resources.icon,
-                        Visible = true,
-                    };
+                tray.showHide.Click += new EventHandler(ApplicationHandler_TrayIcon);
+                tray.exitButton.Click += new EventHandler(ApplicationHandler_TrayIcon);
 
-                    tray.showHide.Click += new EventHandler(ApplicationHandler_TrayIcon);
-                    tray.exitButton.Click += new EventHandler(ApplicationHandler_TrayIcon);
-
-                    Application.Run();
-                }
-            ).Start();
+                Application.Run();
+            }).Start();
 
             Thread.Sleep(5000);
 
@@ -267,10 +269,9 @@ namespace Kxnrl.CSM
             tray.notifyIcon.BalloonTipText = "Server Started!";
             tray.notifyIcon.ShowBalloonTip(5000);
 
-            string input;
             while (true)
             {
-                input = Console.ReadLine();
+                var input = Console.ReadLine();
 
                 if (Global.update)
                 {
@@ -301,7 +302,7 @@ namespace Kxnrl.CSM
                         Environment.Exit(0);
                         break;
                     case "update":
-                        for (int cd = 60; cd > 0; cd--)
+                        for (var cd = 60; cd > 0; cd--)
                         {
                             Console.WriteLine("Server restart in " + cd + " seconds");
                             Win32Api.Message.Write(Global.srcds.MainWindowHandle, "say Server restart in " + cd + " seconds");
@@ -367,7 +368,7 @@ namespace Kxnrl.CSM
         private static bool currentShow = true;
         private static void ApplicationHandler_TrayIcon(object sender, EventArgs e)
         {
-            MenuItem item = (MenuItem)sender;
+            var item = (MenuItem)sender;
             if (item == tray.exitButton)
             {
                 tray.notifyIcon.Visible = false;
@@ -405,8 +406,8 @@ namespace Kxnrl.CSM
         {
             SystemEvents.PowerModeChanged -= ApplicationHandler_PowerModeChanged;
 
-            if (e.Mode == PowerModes.StatusChange)
-            {
+            if (e.Mode is PowerModes.StatusChange)
+            { 
                 Process.Start("powercfg -setactive 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c");
                 Thread.Sleep(5000);
             }
@@ -416,7 +417,7 @@ namespace Kxnrl.CSM
 
         static bool ApplicationHandler_OnClose(Win32Api.ConsoleCTRL.CtrlTypes CtrlType)
         {
-            if (CtrlType == Win32Api.ConsoleCTRL.CtrlTypes.CTRL_CLOSE_EVENT || CtrlType == Win32Api.ConsoleCTRL.CtrlTypes.CTRL_SHUTDOWN_EVENT)
+            if (CtrlType is Win32Api.ConsoleCTRL.CtrlTypes.CTRL_CLOSE_EVENT || CtrlType is Win32Api.ConsoleCTRL.CtrlTypes.CTRL_SHUTDOWN_EVENT)
             {
                 if (Global.tcrash != null)
                 {
@@ -453,13 +454,13 @@ namespace Kxnrl.CSM
 
         static void ExceptionHandler_AppDomain(object sender, UnhandledExceptionEventArgs args)
         {
-            Exception e = args.ExceptionObject as Exception;
-            Logger.Error("\n----------------------------------------\nThread: " + Thread.CurrentThread.Name + "\nException: " + e.GetType() + "\nMessage: " + e.Message + "\nStackTrace:\n" + e.StackTrace);
+            var e = args.ExceptionObject as Exception;
+            Logger.Error("\n----------------------------------------\nThread: " + Thread.CurrentThread.Name + "\nException: " + e?.GetType() + "\nMessage: " + e?.Message + "\nStackTrace:\n" + e?.StackTrace);
         }
 
         static void ExceptionHandler_CurrentThread(object sender, ThreadExceptionEventArgs args)
         {
-            Exception e = args.Exception;
+            var e = args.Exception;
             Logger.Error("\n----------------------------------------\nThread: " + Thread.CurrentThread.Name + "\nException: " + e.GetType() + "\nMessage: " + e.Message + "\nStackTrace:\n" + e.StackTrace);
         }
 
@@ -481,7 +482,7 @@ namespace Kxnrl.CSM
                 {
                     if (!File.Exists(Path.Combine(Path.GetDirectoryName(Configs.srcds), Configs.game, "maps", Configs.startmap + ".bsp")))
                     {
-                        string[] maps = Directory.GetFiles(Path.Combine(Path.GetDirectoryName(Configs.srcds), Configs.game, "maps"), "*.bsp");
+                        var maps = Directory.GetFiles(Path.Combine(Path.GetDirectoryName(Configs.srcds), Configs.game, "maps"), "*.bsp");
 
                         if (maps.Length < 1)
                         {
@@ -496,11 +497,11 @@ namespace Kxnrl.CSM
                 }
                 else
                 {
-                    string[] sp = Configs.startmap.Split(' ');
+                    var sp = Configs.startmap.Split(' ');
 
                     if (!File.Exists(Path.Combine(Path.GetDirectoryName(Configs.srcds), Configs.game, "maps", sp[0] + ".bsp")))
                     {
-                        string[] maps = Directory.GetFiles(Path.Combine(Path.GetDirectoryName(Configs.srcds), Configs.game, "maps"), "*.bsp");
+                        var maps = Directory.GetFiles(Path.Combine(Path.GetDirectoryName(Configs.srcds), Configs.game, "maps"), "*.bsp");
 
                         if (maps.Length < 1)
                         {
@@ -520,17 +521,18 @@ namespace Kxnrl.CSM
                 }
             }
 
-            string args = "-console" + " "
+            var args = "-console" + " "
                         + "-ip "      + Configs.ip   + " "
                         + "-port "    + Configs.port + " "
                         + "-game \""  + Configs.game + "\" "
                         + "-csm "     + version      + " "
-                        + ((!string.IsNullOrEmpty(Configs.insecure)   && int.TryParse(Configs.insecure,   out int insecure) && insecure > 0) ? "-insecure " : "")
-                        + ((!string.IsNullOrEmpty(Configs.tickrate)   && int.TryParse(Configs.tickrate,   out int TickRate) && TickRate > 0) ? string.Format("-tickrate {0} ", TickRate) : "")
-                        + ((!string.IsNullOrEmpty(Configs.maxplayers) && int.TryParse(Configs.maxplayers, out int maxPlays) && maxPlays > 0) ? string.Format("-maxplayers_override {0} ", maxPlays) : "")
-                        + ((!string.IsNullOrEmpty(Configs.nobots)     && int.TryParse(Configs.nobots,     out int nobotsex) && nobotsex > 0) ? "-nobots " : "")
-                        + ((!string.IsNullOrEmpty(Configs.gametype)   && int.TryParse(Configs.gametype,   out int gameType) && gameType > 0) ? string.Format("+game_type {0} ", gameType) : "+game_type 0 ")
-                        + ((!string.IsNullOrEmpty(Configs.gamemode)   && int.TryParse(Configs.gamemode,   out int gameMode) && gameMode > 0) ? string.Format("+game_mode {0} ", gameMode) : "")
+                        + ((!string.IsNullOrEmpty(Configs.insecure)   && int.TryParse(Configs.insecure,   out var insecure) && insecure > 0) ? "-insecure " : "")
+                        + ((!string.IsNullOrEmpty(Configs.tickrate)   && int.TryParse(Configs.tickrate,   out var TickRate) && TickRate > 0) ? string.Format("-tickrate {0} ", TickRate) : "")
+                        + ((!string.IsNullOrEmpty(Configs.maxplayers) && int.TryParse(Configs.maxplayers, out var maxPlays) && maxPlays > 0) ? string.Format("-maxplayers_override {0} ", maxPlays) : "")
+                        + ((!string.IsNullOrEmpty(Configs.nobots)     && int.TryParse(Configs.nobots,     out var nobotsex) && nobotsex > 0) ? "-nobots " : "")
+                        + ((!string.IsNullOrEmpty(Configs.nohltv)     && int.TryParse(Configs.nohltv,     out var nohltvex) && nohltvex > 0) ? "-nohltv " : "")
+                        + ((!string.IsNullOrEmpty(Configs.gametype)   && int.TryParse(Configs.gametype,   out var gameType) && gameType > 0) ? string.Format("+game_type {0} ", gameType) : "+game_type 0 ")
+                        + ((!string.IsNullOrEmpty(Configs.gamemode)   && int.TryParse(Configs.gamemode,   out var gameMode) && gameMode > 0) ? string.Format("+game_mode {0} ", gameMode) : "")
                         + ((!string.IsNullOrEmpty(Configs.SteamApi))   ? string.Format("-authkey {0} ",            Configs.SteamApi) : "")
                         + ((!string.IsNullOrEmpty(Configs.mapgroup))   ? string.Format("+mapgroup {0} ",           Configs.mapgroup) : "")
                         + ((!string.IsNullOrEmpty(Configs.startmap))   ? string.Format("+map \"{0}\" ",            Configs.startmap) : "")
@@ -590,14 +592,14 @@ namespace Kxnrl.CSM
             Global.tupdate.Start();
 
             Global.crash = false;
-            uint a2stimeout = 0;
-            string srcdsError = null;
+            var a2stimeout = 0u;
+            var srcdsError = string.Empty;
 
             while (true)
             {
                 Thread.Sleep(3000);
 
-                if (Thread.CurrentThread.ThreadState == System.Threading.ThreadState.AbortRequested || Thread.CurrentThread.ThreadState == System.Threading.ThreadState.Aborted)
+                if (Thread.CurrentThread.ThreadState is System.Threading.ThreadState.AbortRequested || Thread.CurrentThread.ThreadState is System.Threading.ThreadState.Aborted)
                     return;
 
                 if (Global.update)
@@ -606,7 +608,7 @@ namespace Kxnrl.CSM
                     return;
                 }
 
-                srcdsError = SrcdsError(out string errType);
+                srcdsError = SrcdsError(out var errType);
 
                 if (srcdsError != null)
                 {
@@ -627,7 +629,7 @@ namespace Kxnrl.CSM
                     }
                     else
                     {
-                        byte[] titles = Encoding.Default.GetBytes(Global.srcds.MainWindowTitle);
+                        var titles = Encoding.Default.GetBytes(Global.srcds.MainWindowTitle);
                         Console.Title = "[" + Global.currentPlayers + "/" + Global.maximumPlayers + "]" + "  -  " + Encoding.UTF8.GetString(titles);
                     }
                     tray.notifyIcon.Text = Console.Title;
@@ -716,12 +718,12 @@ namespace Kxnrl.CSM
         {
             do
             {
-                if (Thread.CurrentThread.ThreadState == System.Threading.ThreadState.AbortRequested || Thread.CurrentThread.ThreadState == System.Threading.ThreadState.Aborted)
+                if (Thread.CurrentThread.ThreadState is System.Threading.ThreadState.AbortRequested || Thread.CurrentThread.ThreadState is System.Threading.ThreadState.Aborted)
                     return;
 
                 if (!SteamApi.GetLatestVersion())
                 {
-                    for (int cd = 60; cd > 0; cd--)
+                    for (var cd = 60; cd > 0; cd--)
                     {
                         Console.WriteLine("Server restart in " + cd + " seconds");
                         Win32Api.Message.Write(Global.srcds.MainWindowHandle, "say Server restart in " + cd + " seconds");
@@ -758,23 +760,35 @@ namespace Kxnrl.CSM
             {
                 Console.Write(Environment.NewLine);
 
-                using (Process process = new Process())
+                using (var process = new Process())
                 {
                     Console.WriteLine(Environment.NewLine);
 
                     process.EnableRaisingEvents = true;
                     process.StartInfo.FileName = Configs.steam;
-                    process.StartInfo.Arguments = "+login anonymous +force_install_dir \"" + AppDomain.CurrentDomain.BaseDirectory + "\" " + "+app_update 740 +exit";
+                    process.StartInfo.Arguments = "+login anonymous" + " " + "+force_install_dir \"" + AppDomain.CurrentDomain.BaseDirectory + "\" " + "+app_update 740 +exit";
                     process.StartInfo.UseShellExecute = false;
                     process.StartInfo.RedirectStandardError = true;
                     process.StartInfo.RedirectStandardInput = true;
                     process.StartInfo.RedirectStandardOutput = true;
 
+                    Console.WriteLine("{0}: {1}", Configs.steam, process.StartInfo.Arguments);
+
                     process.Start();
                     process.BeginErrorReadLine();
                     process.BeginOutputReadLine();
 
-                    process.OutputDataReceived += (sender, e) => { Console.WriteLine(e.Data); };
+                    process.OutputDataReceived += (sender, e) => 
+                    {
+                        Console.WriteLine(e.Data);
+                        if (e.Data.Contains("Waiting for user info...OK"))
+                        {
+                            process.StandardInput.WriteLine("force_install_dir \"" + AppDomain.CurrentDomain.BaseDirectory + "\" ");
+                            process.StandardInput.Flush();
+                            process.StandardInput.WriteLine("app_update 740 ");
+                            process.StandardInput.Flush();
+                        }
+                    };
                     process.ErrorDataReceived += (sender, e) => { Console.WriteLine(e.Data); };
 
                     process.WaitForExit();
@@ -785,7 +799,7 @@ namespace Kxnrl.CSM
                 Console.WriteLine("{0} >>> Update successful!", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"));
                 Logger.Log("Update successful!");
             }
-            catch(Exception e)
+            catch (Exception e)
             {
                 Console.WriteLine("Update Failed: {0}", e.Message);
             }
@@ -819,7 +833,7 @@ namespace Kxnrl.CSM
 
                     Logger.Log("Update successful!");
 
-                    for (int cd = 60; cd > 0; cd--)
+                    for (var cd = 60; cd > 0; cd--)
                     {
                         Console.WriteLine("Server restart in " + cd + " seconds");
                         Win32Api.Message.Write(Global.srcds.MainWindowHandle, "say Server restart in " + cd + " seconds");
