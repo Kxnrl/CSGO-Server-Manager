@@ -46,7 +46,7 @@ namespace Kxnrl.CSM
         static void Main()
         {
             // check run once
-            var self = new Mutex(true, Application.StartupPath.GetHashCode().ToString(), out bool allow);
+            var self = new Mutex(true, Application.StartupPath.GetHashCode().ToString(), out var allow);
             if (!allow)
             {
                 MessageBox.Show("CSM is already running.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
@@ -144,7 +144,7 @@ namespace Kxnrl.CSM
 
                 try
                 {
-                    Process exe = Helper.GetAppByPort(port);
+                    var exe = Helper.GetAppByPort(port);
                     Console.WriteLine("{0} >>> Trigger SRCDS Quit -> App[{1}] PID[{2}]", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"), exe.MainWindowTitle, exe.Id);
                     Helper.ForceQuit(exe);
                 }
