@@ -616,7 +616,8 @@ namespace Kxnrl.CSM
                     Logger.Log("Srcds crashed -> " + errType + ": " + srcdsError);
                     goto crashed;
                 }
-                else if (!A2S.Query(false))
+                
+                if (!A2S.Query(false))
                 {
                     a2stimeout++;
                     Console.Title = "[TimeOut] " + Global.srcds.MainWindowTitle;

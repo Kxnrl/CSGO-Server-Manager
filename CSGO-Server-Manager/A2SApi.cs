@@ -24,11 +24,14 @@ namespace Kxnrl.CSM
                 serverSock.SendTimeout = 100;
                 serverSock.ReceiveTimeout = 1000; // A2S Attack
 
+                var socket = Global.ipep.Address.ToString().Equals("0.0.0.0")
+                    ? new IPEndPoint(IPAddress.Parse("127.0.0.1"), Global.ipep.Port)
+                    : Global.ipep;
                 try
                 {
                     if (Global.A2SFireWall)
                     {
-                        serverSock.SendTo(request_a2scsm, Global.ipep.Address.ToString().Equals("0.0.0.0") ? new IPEndPoint(IPAddress.Parse("127.0.0.1"), Global.ipep.Port) : Global.ipep);
+                        serverSock.SendTo(request_a2scsm, socket);
 
                         serverSock.Receive(response, response.Length, SocketFlags.None);
                         results = Encoding.UTF8.GetString(response).Trim();
@@ -70,7 +73,7 @@ namespace Kxnrl.CSM
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine("{0} >>> Failed to A2S Query: {1}", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"), e.Message);
+                    Console.WriteLine("{0} >>> Failed to A2S Query [{2}]: {1}", DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"), e.Message, socket);
                 }
             }
 

@@ -122,6 +122,11 @@ namespace Kxnrl.CSM
             Global.srcds.Close();
             Global.srcds.Dispose();
             Global.srcds = null;
+            if (Global.tcrash != null)
+            {
+                Global.tcrash.Abort();
+                Global.tcrash = null;
+            }
             Thread.Sleep(500);
         }
 
